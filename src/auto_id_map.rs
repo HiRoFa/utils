@@ -3,7 +3,7 @@ use std::collections::HashMap;
 /// AutoIdMap is a wrapper around HashMap which automatically creates a unique id for it's entries
 /// # Example
 /// ```no_run
-/// use es_runtime::utils::AutoIdMap;
+/// use hirofa_utils::auto_id_map::AutoIdMap;
 ///
 /// let mut map = AutoIdMap::new();
 /// let id1 = map.insert("hi");
