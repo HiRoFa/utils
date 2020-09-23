@@ -15,6 +15,7 @@ use std::collections::HashMap;
 /// assert_eq!(map.len(), 1);
 /// ```
 pub struct AutoIdMap<T> {
+    max_size: usize,
     last_id: usize,
     map: HashMap<usize, T>,
 }
@@ -22,7 +23,12 @@ pub struct AutoIdMap<T> {
 impl<T> AutoIdMap<T> {
     /// create a new instance of the AutoIdMap
     pub fn new() -> AutoIdMap<T> {
+        Self::new_with_max_size(usize::MAX)
+    }
+
+    pub fn new_with_max_size(max_size: usize) -> AutoIdMap<T> {
         AutoIdMap {
+            max_size,
             last_id: 0,
             map: HashMap::new(),
         }
@@ -30,12 +36,29 @@ impl<T> AutoIdMap<T> {
 
     /// insert an element and return the new id
     pub fn insert(&mut self, elem: T) -> usize {
+
+        if self.map.len() >= self.max_size {
+            panic!("AutoIdMap is full");
+        }
+
         self.last_id += 1;
+
+        if self.last_id >= self.max_size {
+            self.last_id = 0;
+        }
+
+        while self.map.contains_key(&self.last_id) {
+            if self.last_id >= self.max_size {
+                self.last_id = 0;
+            }
+            self.last_id += 1;
+        }
+
         self.map.insert(self.last_id, elem);
         self.last_id
     }
 
-    /// replace an element, this will panic if you pas san id that is not present
+    /// replace an element, this will panic if you pass an id that is not present
     #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn replace(&mut self, id: &usize, elem: T) {
         // because we really don't want you to abuse this to insert your own id's :)
@@ -85,5 +108,24 @@ impl<T> AutoIdMap<T> {
 impl<T> Default for AutoIdMap<T> {
     fn default() -> Self {
         AutoIdMap::new()
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::auto_id_map::AutoIdMap;
+
+    #[test]
+    fn test_aim(){
+
+        let mut map = AutoIdMap::new_with_max_size(8);
+        for x in 0..8 {
+            map.insert("foo");
+        }
+        assert_eq!(map.len(), 8);
+        map.remove(&5);
+        let free_id = map.insert("fail?");
+
+        assert_eq!(free_id, 5);
     }
 }
