@@ -34,9 +34,45 @@ impl<T> AutoIdMap<T> {
         }
     }
 
+    pub fn foreach_value<F: Fn(&T)>(&self, f: F) {
+        for i in self.map.values() {
+            f(i);
+        }
+    }
+
+    pub fn foreach<F: Fn(&usize, &T)>(&self, f: F) {
+        for i in &self.map {
+            f(i.0, i.1);
+        }
+    }
+
+    pub fn remove_values<F: Fn(&T) -> bool>(&mut self, f: F) -> Vec<T> {
+        let mut rems = vec![];
+        let mut rem_keys = vec![];
+        {
+            for i in self.map.iter() {
+                if f(&i.1) {
+                    rem_keys.push(*i.0);
+                }
+            }
+        }
+        for k in rem_keys {
+            rems.push(self.map.remove(&k).unwrap());
+        }
+        rems
+    }
+
+    pub fn contains_value<F: Fn(&T) -> bool>(&self, f: F) -> bool {
+        for v in self.map.values() {
+            if f(v) {
+                return true;
+            }
+        }
+        false
+    }
+
     /// insert an element and return the new id
     pub fn insert(&mut self, elem: T) -> usize {
-
         if self.map.len() >= self.max_size {
             panic!("AutoIdMap is full");
         }
@@ -116,10 +152,9 @@ pub mod tests {
     use crate::auto_id_map::AutoIdMap;
 
     #[test]
-    fn test_aim(){
-
+    fn test_aim() {
         let mut map = AutoIdMap::new_with_max_size(8);
-        for x in 0..8 {
+        for _x in 0..8 {
             map.insert("foo");
         }
         assert_eq!(map.len(), 8);

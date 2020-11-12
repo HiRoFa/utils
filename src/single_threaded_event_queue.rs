@@ -1,21 +1,33 @@
+use crate::auto_id_map::AutoIdMap;
 use crate::debug_mutex::DebugMutex;
 use log::trace;
 use std::cell::RefCell;
 use std::mem::replace;
+use std::ops::Add;
 use std::sync::mpsc::channel;
-use std::sync::{Arc, Condvar};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 type LocalJob = dyn FnOnce() + 'static;
+type Job = dyn Fn() + 'static;
+
+struct ScheduledJob {
+    job: Box<Job>,
+    interval: Option<Duration>,
+    next_run: Instant,
+}
 
 thread_local!(
-    pub static LOCAL_JOBS: RefCell<Vec<Box<LocalJob>>> = RefCell::new(vec![]);
+    static LOCAL_JOBS: RefCell<Vec<Box<LocalJob>>> = RefCell::new(vec![]);
+    static SCHEDULED_LOCAL_JOBS: RefCell<AutoIdMap<ScheduledJob>> =
+        RefCell::new(AutoIdMap::new_with_max_size(i32::max_value() as usize));
 );
+
 ///
 /// the EsEventQueue is a single threaded thread pool which is used to act as the only thread
-/// using an instance of the spidermonkey runtime
+/// using an instance of a script runtime
 /// besides being able to add tasks from any thread by add_task
 /// a running task can add jobs to the current thread by calling add_task_from_worker
 /// those tasks need not impl the Send trait and there is no locking happening to add
@@ -116,6 +128,36 @@ impl SingleThreadedEventQueue {
         self.empty_cond.notify_all();
     }
 
+    pub fn schedule_task_from_worker<T: Fn() + 'static>(
+        &self,
+        task: T,
+        interval: Option<Duration>,
+        delay: Duration,
+    ) -> i32 {
+        self.assert_is_worker_thread();
+
+        let task = ScheduledJob {
+            job: Box::new(task),
+            interval,
+            next_run: Instant::now().add(delay),
+        };
+
+        let res_id = SCHEDULED_LOCAL_JOBS.with(|rc| {
+            let jobs = &mut *rc.borrow_mut();
+            jobs.insert(task) as i32
+        });
+
+        res_id
+    }
+
+    pub fn remove_schedule_task_from_worker(&self, id: i32) {
+        self.assert_is_worker_thread();
+        SCHEDULED_LOCAL_JOBS.with(|rc| {
+            let jobs = &mut *rc.borrow_mut();
+            jobs.remove(&(id as usize));
+        });
+    }
+
     pub fn is_empty(&self) -> bool {
         !self.has_local_jobs() && !self.has_jobs()
     }
@@ -161,7 +203,7 @@ impl SingleThreadedEventQueue {
             let mut jobs_lck = self.jobs.lock("worker_loop").unwrap();
 
             if jobs_lck.is_empty() && !self.has_local_jobs() {
-                let dur = Duration::from_secs(5);
+                let dur = Duration::from_millis(250);
                 jobs_lck = self.empty_cond.wait_timeout(jobs_lck, dur).ok().unwrap().0;
             }
 
@@ -172,20 +214,93 @@ impl SingleThreadedEventQueue {
             job();
         }
 
-        LOCAL_JOBS.with(|rc| {
-            let mut local_todos = vec![];
+        while has_local_or_runnable_sched() {
+            run_local_jobs();
+            run_sched_jobs();
+        }
+    }
+}
+
+fn has_local_or_runnable_sched() -> bool {
+    if LOCAL_JOBS.with(|rc| {
+        let local_jobs = &*rc.borrow();
+        !local_jobs.is_empty()
+    }) {
+        return true;
+    }
+
+    if SCHEDULED_LOCAL_JOBS.with(|rc| {
+        let scheds = &*rc.borrow();
+        let now = Instant::now();
+        scheds.contains_value(|v| return v.next_run.lt(&now))
+    }) {
+        true
+    } else {
+        false
+    }
+}
+
+fn run_sched_jobs() {
+    // NB prevent double borrow mut, so first get removable jobs
+    let now = Instant::now();
+    SCHEDULED_LOCAL_JOBS.with(|rc| {
+        {
+            // this block is so we don;t a a mutable borrow while running a job, a job might add another job and then there might allready be a mutable borrow. which would be bad
+
+            let removable_jobs;
             {
-                let local_jobs = &mut *rc.borrow_mut();
-                while !local_jobs.is_empty() {
-                    let local_job = local_jobs.remove(0);
-                    local_todos.push(local_job);
+                let jobs = &mut *rc.borrow_mut();
+                removable_jobs =
+                    jobs.remove_values(|job| job.next_run.lt(&now) && job.interval.is_none());
+            }
+
+            // run those
+            for job in &removable_jobs {
+                let j = &job.job;
+                j();
+            }
+
+            // update re-scheds
+            // haha this effing sucks, i need descent iter/map/collect code in AutoIdMap
+            // also figure out a way to dynamically get wait delay for empty condition
+            let re_sched_ids: Arc<Mutex<Vec<usize>>> = Arc::new(Mutex::new(vec![]));
+            {
+                let jobs = &*rc.borrow();
+                jobs.foreach(|k, v| {
+                    if v.next_run.lt(&now) && v.interval.is_some() {
+                        re_sched_ids.lock().unwrap().push(*k);
+                        let j = &v.job;
+                        j();
+                    }
+                });
+            }
+
+            // re sched jobs
+            {
+                let jobs = &mut *rc.borrow_mut();
+                for k in &*re_sched_ids.lock().unwrap() {
+                    let job = jobs.get_mut(k).unwrap();
+                    job.next_run = Instant::now().add(job.interval.unwrap());
                 }
             }
-            for local_todo in local_todos {
-                local_todo();
+        }
+    })
+}
+
+fn run_local_jobs() {
+    LOCAL_JOBS.with(|rc| {
+        let mut local_todos = vec![];
+        {
+            let local_jobs = &mut *rc.borrow_mut();
+            while !local_jobs.is_empty() {
+                let local_job = local_jobs.remove(0);
+                local_todos.push(local_job);
             }
-        });
-    }
+        }
+        for local_todo in local_todos {
+            local_todo();
+        }
+    });
 }
 
 impl Drop for SingleThreadedEventQueue {
@@ -197,7 +312,7 @@ impl Drop for SingleThreadedEventQueue {
 #[cfg(test)]
 mod tests {
     use crate::single_threaded_event_queue::SingleThreadedEventQueue;
-    use log::debug;
+    use log::{debug, LevelFilter};
 
     use std::thread;
     use std::time::Duration;
@@ -260,5 +375,52 @@ mod tests {
         debug!("EsEventQueue should drop now");
         thread::sleep(Duration::from_secs(1));
         debug!("EsEventQueue should be dropped now");
+    }
+
+    #[test]
+    fn t2() {
+        simple_logging::log_to_stderr(LevelFilter::Trace);
+
+        let sttm = SingleThreadedEventQueue::new();
+        let sttm2 = sttm.clone();
+        sttm.add_task(move || {
+            sttm2.schedule_task_from_worker(
+                || {
+                    log::info!("st 1 > after 1 sec");
+                },
+                None,
+                Duration::from_secs(1),
+            );
+            sttm2.schedule_task_from_worker(
+                || {
+                    log::info!("st 2 > after 2 secs");
+                },
+                None,
+                Duration::from_secs(2),
+            );
+            sttm2.schedule_task_from_worker(
+                || {
+                    log::info!("st 3 > after 7 secs");
+                },
+                None,
+                Duration::from_secs(7),
+            );
+            sttm2.schedule_task_from_worker(
+                || {
+                    log::info!("int 1 > after 2 secs, every 2 secs");
+                },
+                Some(Duration::from_secs(2)),
+                Duration::from_secs(2),
+            );
+            sttm2.schedule_task_from_worker(
+                || {
+                    log::info!("int 2 > after 2 secs, every 5 secs");
+                },
+                Some(Duration::from_secs(5)),
+                Duration::from_secs(2),
+            );
+        });
+
+        std::thread::sleep(Duration::from_secs(13));
     }
 }
