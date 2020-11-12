@@ -154,7 +154,10 @@ impl SingleThreadedEventQueue {
         self.assert_is_worker_thread();
         SCHEDULED_LOCAL_JOBS.with(|rc| {
             let jobs = &mut *rc.borrow_mut();
-            jobs.remove(&(id as usize));
+            let id = &(id as usize);
+            if jobs.contains_key(id) {
+                jobs.remove(id);
+            }
         });
     }
 
