@@ -68,6 +68,7 @@ impl SingleThreadedEventQueue {
 
     /// add a task which will run asynchronously
     pub fn add_task<T: FnOnce() + Send + 'static>(&self, task: T) {
+        // todo block on max size
         trace!("EsEventQueue::add_task");
         {
             let mut lck = self.jobs.lock("add_task").unwrap();
@@ -161,13 +162,9 @@ impl SingleThreadedEventQueue {
         });
     }
 
-    pub fn is_empty(&self) -> bool {
-        !self.has_local_jobs() && !self.has_jobs()
-    }
-
-    fn has_jobs(&self) -> bool {
-        let jobs_lck = self.jobs.lock("has_jobs").unwrap();
-        !jobs_lck.is_empty()
+    pub fn todo_count(&self) -> usize {
+        let jobs_lck = self.jobs.lock("todo_count").unwrap();
+        jobs_lck.len()
     }
 
     fn has_local_jobs(&self) -> bool {
@@ -177,16 +174,7 @@ impl SingleThreadedEventQueue {
         })
     }
 
-    pub fn looks_like_eventqueue_thread() -> bool {
-        let handle = thread::current();
-        if let Some(handle_name) = handle.name() {
-            handle_name.starts_with("eseq_wt_")
-        } else {
-            false
-        }
-    }
-
-    pub fn is_worker_thread(&self) -> bool {
+    fn is_worker_thread(&self) -> bool {
         let handle = thread::current();
         if let Some(handle_name) = handle.name() {
             self.worker_thread_name.as_str().eq(handle_name)
@@ -196,8 +184,10 @@ impl SingleThreadedEventQueue {
     }
 
     pub fn assert_is_worker_thread(&self) {
-        let handle = thread::current();
-        assert_eq!(handle.name(), Some(self.worker_thread_name.as_str()));
+        debug_assert_eq!(
+            thread::current().name(),
+            Some(self.worker_thread_name.as_str())
+        );
     }
 
     fn worker_loop(&self) {
