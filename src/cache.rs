@@ -6,8 +6,10 @@ pub trait CacheIFace<K: std::cmp::Eq, O> {
     fn invalidate_all(&mut self);
     fn invalidate_stale(&mut self);
     fn opt(&mut self, key: &K) -> Option<&O>;
+    fn opt_mut(&mut self, key: &K) -> Option<&mut O>;
     fn opt_no_touch(&self, key: &K) -> Option<&O>;
     fn get(&mut self, key: &K) -> Option<&O>;
+    fn get_mut(&mut self, key: &K) -> Option<&mut O>;
     fn contains_key(&self, key: &K) -> bool;
     fn invalidate(&mut self, key: &K);
     fn insert(&mut self, key: K, item: O);
@@ -87,6 +89,23 @@ impl<K: std::cmp::Eq + std::hash::Hash + Clone, O> CacheIFace<K, O> for Cache<K,
         }
     }
 
+    fn opt_mut(&mut self, key: &K) -> Option<&mut O> {
+        let entry_opt = self.entries.get_mut(key);
+        if let Some(e) = entry_opt {
+            let now = Instant::now();
+            // check if the entry falls outside the resolution , prevents entries being reinserted on every get
+            if e.last_used.lt(&now.sub(self.inactive_resolution)) {
+                drop(e);
+                let mut removed_entry = self.entries.remove(key).unwrap();
+                removed_entry.last_used = now;
+                self.entries.insert(key.clone(), removed_entry);
+            }
+            self.entries.get_mut(key).map(|i| &mut i.item)
+        } else {
+            None
+        }
+    }
+
     fn opt_no_touch(&self, key: &K) -> Option<&O> {
         self.entries.get(key).map(|e| &e.item)
     }
@@ -104,6 +123,18 @@ impl<K: std::cmp::Eq + std::hash::Hash + Clone, O> CacheIFace<K, O> for Cache<K,
         }
     }
 
+    fn get_mut(&mut self, key: &K) -> Option<&mut O> {
+        self.invalidate_stale();
+        if self.contains_key(key) {
+            self.opt_mut(key)
+        } else {
+            let item_opt = (*self.producer)(key);
+            if let Some(item) = item_opt {
+                self.insert(key.clone(), item);
+            }
+            self.opt_mut(key)
+        }
+    }
     fn contains_key(&self, key: &K) -> bool {
         self.entries.contains_key(key)
     }
@@ -131,13 +162,13 @@ pub mod tests {
 
     #[test]
     fn test_cache() {
-        let producer = |key: &i32| Some(format!("entry: {}", key));
-        let mut cache = Cache::new(producer, Duration::from_secs(2), 10);
+        let producer = |key: &&str| Some(format!("entry: {}", key));
+        let mut cache: Cache<&str, String> = Cache::new(producer, Duration::from_secs(2), 10);
 
-        let _one = cache.get(&1);
-        let _two = cache.get(&2);
-        let three = cache.get(&3);
-        assert_eq!(three.expect("three not found").as_str(), "entry: 3");
+        let _one = cache.get(&"a");
+        let _two = cache.get(&"b");
+        let three = cache.get(&"c");
+        assert_eq!(three.expect("c not found").as_str(), "entry: c");
 
         assert_eq!(3, cache.len());
 
@@ -146,7 +177,9 @@ pub mod tests {
 
         assert_eq!(0, cache.len());
 
-        for x in 0..15 {
+        for x in vec![
+            "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o",
+        ] {
             let _ = cache.get(&x);
         }
 
