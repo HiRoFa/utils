@@ -136,7 +136,7 @@ impl SingleThreadedEventQueue {
         delay: Duration,
     ) -> i32 {
 
-        trace!("SingleThreadedEventQueue.schedule_task_from_worker interval:{} delay:{}", interval, delay);
+        trace!("SingleThreadedEventQueue.schedule_task_from_worker interval:{:?} delay:{:?}", interval, delay);
 
         self.assert_is_worker_thread();
 
