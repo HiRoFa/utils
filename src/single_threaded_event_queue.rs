@@ -387,14 +387,14 @@ mod tests {
                     log::info!("st 1 > after 1 sec");
                 },
                 None,
-                Duration::from_secs(1),
+                Duration::from_millis(1000),
             );
             sttm2.schedule_task_from_worker(
                 || {
                     log::info!("st 2 > after 2 secs");
                 },
                 None,
-                Duration::from_secs(2),
+                Duration::from_millis(2000),
             );
             sttm2.schedule_task_from_worker(
                 || {
