@@ -135,6 +135,9 @@ impl SingleThreadedEventQueue {
         interval: Option<Duration>,
         delay: Duration,
     ) -> i32 {
+
+        trace!("SingleThreadedEventQueue.schedule_task_from_worker interval:{} delay:{}", interval, delay);
+
         self.assert_is_worker_thread();
 
         let task = ScheduledJob {
@@ -222,15 +225,11 @@ fn has_local_or_runnable_sched() -> bool {
         return true;
     }
 
-    if SCHEDULED_LOCAL_JOBS.with(|rc| {
+    SCHEDULED_LOCAL_JOBS.with(|rc| {
         let scheds = &*rc.borrow();
         let now = Instant::now();
         scheds.contains_value(|v| return v.next_run.lt(&now))
-    }) {
-        true
-    } else {
-        false
-    }
+    })
 }
 
 fn run_sched_jobs() {
@@ -273,7 +272,7 @@ fn run_sched_jobs() {
                 let jobs = &mut *rc.borrow_mut();
                 for k in &*re_sched_ids.lock().unwrap() {
                     let job = jobs.get_mut(k).unwrap();
-                    job.next_run = Instant::now().add(job.interval.unwrap());
+                    job.next_run = now.add(job.interval.unwrap());
                 }
             }
         }
