@@ -211,6 +211,7 @@ impl SingleThreadedEventQueue {
         }
 
         while has_local_or_runnable_sched() {
+            trace!("SingleThreadedEventQueue.has_local_or_runnable_sched() == true");
             run_local_jobs();
             run_sched_jobs();
         }
@@ -218,6 +219,7 @@ impl SingleThreadedEventQueue {
 }
 
 fn has_local_or_runnable_sched() -> bool {
+
     if LOCAL_JOBS.with(|rc| {
         let local_jobs = &*rc.borrow();
         !local_jobs.is_empty()
@@ -246,11 +248,15 @@ fn run_sched_jobs() {
                     jobs.remove_values(|job| job.next_run.lt(&now) && job.interval.is_none());
             }
 
+            trace!("SingleThreadedEventQueue.run_sched_jobs jobct={}", removable_jobs.len());
+
             // run those
             for job in &removable_jobs {
                 let j = &job.job;
                 j();
             }
+
+            trace!("SingleThreadedEventQueue.run_sched_jobs done");
 
             // update re-scheds
             // haha this effing sucks, i need descent iter/map/collect code in AutoIdMap
