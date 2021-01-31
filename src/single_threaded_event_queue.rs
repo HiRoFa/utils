@@ -246,9 +246,9 @@ fn run_sched_jobs() {
                 let jobs = &mut *rc.borrow_mut();
                 removable_jobs =
                     jobs.remove_values(|job| job.next_run.lt(&now) && job.interval.is_none());
+                trace!("SingleThreadedEventQueue.run_sched_jobs jobs.len={}", jobs.len());
+                trace!("SingleThreadedEventQueue.run_sched_jobs removable_jobs.len={}", removable_jobs.len());
             }
-
-            trace!("SingleThreadedEventQueue.run_sched_jobs jobct={}", removable_jobs.len());
 
             // run those
             for job in &removable_jobs {
