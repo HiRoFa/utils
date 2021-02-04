@@ -247,6 +247,11 @@ fn run_sched_jobs() {
                 removable_jobs =
                     jobs.remove_values(|job| job.next_run.lt(&now) && job.interval.is_none());
                 trace!("SingleThreadedEventQueue.run_sched_jobs jobs.len={}", jobs.len());
+
+                jobs.foreach_value(|job| {
+                    trace!("remaining jobnext_run = {:?}, now = {:?}", job.next_run, now);
+                });
+
                 trace!("SingleThreadedEventQueue.run_sched_jobs removable_jobs.len={}", removable_jobs.len());
             }
 
