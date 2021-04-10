@@ -1,12 +1,17 @@
 use crate::auto_id_map::AutoIdMap;
 use crate::debug_mutex::DebugMutex;
+use futures::task::Waker;
 use log::trace;
 use std::cell::RefCell;
+use std::future::Future;
 use std::mem::replace;
 use std::ops::Add;
-use std::sync::mpsc::channel;
+use std::pin::Pin;
+use std::sync::mpsc::{channel, Receiver, SendError, Sender};
 use std::sync::{Arc, Condvar, Mutex};
+use std::task::{Context, Poll};
 use std::thread;
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
@@ -36,34 +41,139 @@ pub struct SingleThreadedEventQueue {
     jobs: DebugMutex<Vec<Box<dyn FnOnce() + Send + 'static>>>,
     empty_cond: Condvar,
     worker_thread_name: String,
+    shutdown_switch: Mutex<Sender<bool>>,
+    join_handle: Mutex<Option<JoinHandle<()>>>,
+}
+
+pub struct TaskFutureResolver<R> {
+    sender: Mutex<Sender<R>>,
+    waker: Mutex<Option<Waker>>,
+}
+
+impl<R> TaskFutureResolver<R> {
+    pub fn new(tx: Sender<R>) -> Self {
+        Self {
+            sender: Mutex::new(tx),
+            waker: Mutex::new(None),
+        }
+    }
+    pub fn resolve(&self, resolution: R) -> Result<(), SendError<R>> {
+        log::trace!("TaskFutureResolver.resolve");
+        let lck = self.sender.lock().unwrap();
+        let sender = &*lck;
+        sender.send(resolution)?;
+        drop(lck);
+
+        let waker_opt = &mut *self.waker.lock().unwrap();
+        if let Some(waker) = waker_opt.take() {
+            waker.wake();
+        }
+        Ok(())
+    }
+}
+
+pub struct TaskFuture<R> {
+    result: Receiver<R>,
+    resolver: Arc<TaskFutureResolver<R>>,
+}
+impl<R> TaskFuture<R> {
+    pub fn new() -> Self {
+        let (tx, rx) = channel();
+
+        Self {
+            result: rx,
+            resolver: Arc::new(TaskFutureResolver {
+                sender: Mutex::new(tx),
+                waker: Mutex::new(None),
+            }),
+        }
+    }
+    pub fn get_resolver(&self) -> Arc<TaskFutureResolver<R>> {
+        self.resolver.clone()
+    }
+}
+impl<R> Default for TaskFuture<R> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl<R> Future for TaskFuture<R> {
+    type Output = R;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        log::trace!("TaskFuture::poll");
+        match self.result.try_recv() {
+            Ok(res) => {
+                log::trace!("TaskFuture::poll -> Ready");
+                Poll::Ready(res)
+            }
+            Err(_) => {
+                log::trace!("TaskFuture::poll -> Pending");
+                let mtx = &self.resolver.waker;
+                let waker_opt = &mut *mtx.lock().unwrap();
+                let _ = waker_opt.replace(cx.waker().clone());
+                Poll::Pending
+            }
+        }
+    }
 }
 
 impl SingleThreadedEventQueue {
     pub fn new() -> Arc<Self> {
         let uuid = format!("eseq_wt_{}", Uuid::new_v4());
+
+        let (shutdown_switch, shutdown_receiver) = channel();
+
         let task_manager = SingleThreadedEventQueue {
             jobs: DebugMutex::new(vec![], "EsEventQueue::jobs"),
             empty_cond: Condvar::new(),
             worker_thread_name: uuid.clone(),
+            shutdown_switch: Mutex::new(shutdown_switch),
+            join_handle: Mutex::new(None),
         };
-        let rc = Arc::new(task_manager);
+        let ret = Arc::new(task_manager);
+        let arc = ret.clone();
 
-        let wrc = Arc::downgrade(&rc);
-
-        thread::Builder::new()
+        let join_handle = thread::Builder::new()
             .name(uuid)
             .spawn(move || loop {
-                let rcc = wrc.upgrade();
-                if let Some(rc) = rcc {
-                    rc.worker_loop();
-                } else {
-                    trace!("Arc to EsEventQueue was dropped, stopping worker thread");
+                arc.worker_loop();
+                if shutdown_receiver.try_recv().is_ok() {
+                    trace!("Shutdown was called, stopping worker thread");
+                    arc.shutdown_cleanup();
                     break;
                 }
             })
             .unwrap();
 
-        rc
+        ret.join_handle.lock().unwrap().replace(join_handle);
+
+        ret
+    }
+
+    pub fn shutdown(&self) {
+        // todo use a channel
+        self.shutdown_switch
+            .lock()
+            .unwrap()
+            .send(true)
+            .expect("could not send shutdown");
+        // wake up
+        self.add_task(|| {});
+        let jh_opt = &mut *self.join_handle.lock().unwrap();
+        let jh = jh_opt.take().expect("no join handle set");
+        jh.join().expect("join failed");
+    }
+
+    fn shutdown_cleanup(&self) {
+        LOCAL_JOBS.with(|rc| {
+            let lj = &mut *rc.borrow_mut();
+            lj.clear();
+        });
+        SCHEDULED_LOCAL_JOBS.with(|rc| {
+            let slj = &mut *rc.borrow_mut();
+            slj.clear();
+        })
     }
 
     /// add a task which will run asynchronously
@@ -77,6 +187,28 @@ impl SingleThreadedEventQueue {
         }
         trace!("EsEventQueue::add_task / notify");
         self.empty_cond.notify_all();
+    }
+
+    pub fn async_task<T: FnOnce() -> R + Send + 'static, R: Send + 'static>(
+        &self,
+        task: T,
+    ) -> impl Future<Output = R> {
+        trace!("EsEventQueue::async_task");
+        let fut = TaskFuture::new();
+        let tx = fut.get_resolver();
+        self.add_task(move || {
+            let res = task();
+            match tx.resolve(res) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!(
+                        "resolving TaskFuture failed, TaskFuture was probably dropped: {}",
+                        e
+                    );
+                }
+            }
+        });
+        fut
     }
 
     /// execute a task synchronously in the worker thread
@@ -135,8 +267,11 @@ impl SingleThreadedEventQueue {
         interval: Option<Duration>,
         delay: Duration,
     ) -> i32 {
-
-        trace!("SingleThreadedEventQueue.schedule_task_from_worker interval:{:?} delay:{:?}", interval, delay);
+        trace!(
+            "SingleThreadedEventQueue.schedule_task_from_worker interval:{:?} delay:{:?}",
+            interval,
+            delay
+        );
 
         self.assert_is_worker_thread();
 
@@ -146,12 +281,11 @@ impl SingleThreadedEventQueue {
             next_run: Instant::now().add(delay),
         };
 
-        let res_id = SCHEDULED_LOCAL_JOBS.with(|rc| {
+        // return the id
+        SCHEDULED_LOCAL_JOBS.with(|rc| {
             let jobs = &mut *rc.borrow_mut();
             jobs.insert(task) as i32
-        });
-
-        res_id
+        })
     }
 
     pub fn remove_schedule_task_from_worker(&self, id: i32) {
@@ -194,13 +328,19 @@ impl SingleThreadedEventQueue {
     }
 
     fn worker_loop(&self) {
+        let wait_dur: Duration = run_sched_jobs();
+
         let jobs: Vec<Box<dyn FnOnce() + Send + 'static>>;
         {
             let mut jobs_lck = self.jobs.lock("worker_loop").unwrap();
 
             if jobs_lck.is_empty() && !self.has_local_jobs() {
-                let dur = Duration::from_millis(250);
-                jobs_lck = self.empty_cond.wait_timeout(jobs_lck, dur).ok().unwrap().0;
+                jobs_lck = self
+                    .empty_cond
+                    .wait_timeout(jobs_lck, wait_dur)
+                    .ok()
+                    .unwrap()
+                    .0;
             }
 
             jobs = replace(&mut *jobs_lck, vec![]);
@@ -210,36 +350,17 @@ impl SingleThreadedEventQueue {
             job();
         }
 
-        while has_local_or_runnable_sched() {
-            trace!("SingleThreadedEventQueue.has_local_or_runnable_sched() == true");
-            run_local_jobs();
-            run_sched_jobs();
-        }
+        run_local_jobs();
     }
 }
 
-fn has_local_or_runnable_sched() -> bool {
-
-    if LOCAL_JOBS.with(|rc| {
-        let local_jobs = &*rc.borrow();
-        !local_jobs.is_empty()
-    }) {
-        return true;
-    }
-
-    SCHEDULED_LOCAL_JOBS.with(|rc| {
-        let scheds = &*rc.borrow();
-        let now = Instant::now();
-        scheds.contains_value(|v| return v.next_run.lt(&now))
-    })
-}
-
-fn run_sched_jobs() {
+fn run_sched_jobs() -> Duration {
     // NB prevent double borrow mut, so first get removable jobs
     let now = Instant::now();
     SCHEDULED_LOCAL_JOBS.with(|rc| {
+        let mut wait_dur = Duration::from_millis(10000);
         {
-            // this block is so we don;t a a mutable borrow while running a job, a job might add another job and then there might allready be a mutable borrow. which would be bad
+            // this block is so we don;t a a mutable borrow while running a job, a job might add another job and then there might already be a mutable borrow. which would be bad
 
             let removable_jobs;
             {
@@ -278,8 +399,16 @@ fn run_sched_jobs() {
                     let job = jobs.get_mut(k).unwrap();
                     job.next_run = now.add(job.interval.unwrap());
                 }
+
+                for job in jobs.map.values() {
+                    let wait_opt = job.next_run.duration_since(now);
+                    if wait_opt.lt(&wait_dur) {
+                        wait_dur = wait_opt;
+                    }
+                }
             }
         }
+        wait_dur
     })
 }
 
@@ -307,19 +436,21 @@ impl Drop for SingleThreadedEventQueue {
 
 #[cfg(test)]
 mod tests {
-    use crate::single_threaded_event_queue::SingleThreadedEventQueue;
-    use log::{debug, LevelFilter};
 
+    use crate::single_threaded_event_queue::SingleThreadedEventQueue;
+    use futures::executor::block_on;
+    use log::debug;
     use std::thread;
     use std::time::Duration;
+
     #[test]
     fn t() {
         thread::spawn(|| {
             t1();
         })
-        .join()
-        .ok()
-        .unwrap();
+            .join()
+            .ok()
+            .unwrap();
     }
 
     fn t1() {
@@ -367,6 +498,7 @@ mod tests {
             std::thread::sleep(Duration::from_secs(2));
             j.join().ok().unwrap();
             debug!("done");
+            sttm.shutdown();
         }
         debug!("EsEventQueue should drop now");
         thread::sleep(Duration::from_secs(1));
@@ -375,7 +507,7 @@ mod tests {
 
     #[test]
     fn t2() {
-        simple_logging::log_to_stderr(LevelFilter::Trace);
+        //simple_logging::log_to_stderr(LevelFilter::Trace);
 
         let sttm = SingleThreadedEventQueue::new();
         let sttm2 = sttm.clone();
@@ -418,5 +550,31 @@ mod tests {
         });
 
         std::thread::sleep(Duration::from_secs(13));
+        sttm.shutdown();
+    }
+
+    async fn test_async1(sttm: &SingleThreadedEventQueue) {
+        let f1 = sttm.async_task(|| {
+            thread::sleep(Duration::from_secs(1));
+            "blurb1"
+        });
+        let f2 = sttm.async_task(|| {
+            thread::sleep(Duration::from_secs(1));
+            "blurb2"
+        });
+
+        let two = f2.await;
+        let one = f1.await;
+
+        assert_eq!(one, "blurb1");
+        assert_eq!(two, "blurb2");
+    }
+
+    #[test]
+    fn test_async() {
+        let sttm = SingleThreadedEventQueue::new();
+        let fut = test_async1(&sttm);
+        block_on(fut);
+        sttm.shutdown();
     }
 }

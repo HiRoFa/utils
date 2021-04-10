@@ -3,8 +3,8 @@ use std::collections::HashMap;
 /// AutoIdMap is a wrapper around HashMap which automatically creates a unique id for it's entries
 /// # Example
 /// ```no_run
-/// use hirofa_utils::auto_id_map::AutoIdMap;
 ///
+/// use hirofa_utils::auto_id_map::AutoIdMap;
 /// let mut map = AutoIdMap::new();
 /// let id1 = map.insert("hi");
 /// let id2 = map.insert("hi2");
@@ -17,7 +17,7 @@ use std::collections::HashMap;
 pub struct AutoIdMap<T> {
     max_size: usize,
     last_id: usize,
-    map: HashMap<usize, T>,
+    pub(crate) map: HashMap<usize, T>,
 }
 
 impl<T> AutoIdMap<T> {
@@ -44,6 +44,10 @@ impl<T> AutoIdMap<T> {
         for i in &self.map {
             f(i.0, i.1);
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.map.clear();
     }
 
     pub fn remove_values<F: Fn(&T) -> bool>(&mut self, f: F) -> Vec<T> {
