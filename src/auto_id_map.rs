@@ -40,6 +40,12 @@ impl<T> AutoIdMap<T> {
         }
     }
 
+    pub fn foreach_value_mut<F: Fn(&mut T)>(&mut self, f: F) {
+        for i in self.map.values_mut() {
+            f(i);
+        }
+    }
+
     pub fn foreach<F: Fn(&usize, &T)>(&self, f: F) {
         for i in &self.map {
             f(i.0, i.1);

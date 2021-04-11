@@ -1,9 +1,12 @@
+use crate::auto_id_map::AutoIdMap;
 use futures::executor::{block_on, LocalPool, LocalSpawner};
 use futures::task::{LocalSpawnExt, SpawnExt};
 use std::cell::RefCell;
 use std::future::Future;
+use std::ops::Add;
 use std::sync::mpsc::{channel, Sender};
 use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 
 /// the EventLoop struct is a single thread event queue
 pub struct EventLoop {
@@ -11,7 +14,21 @@ pub struct EventLoop {
     join_handle: Option<JoinHandle<()>>,
 }
 
+struct Timeout {
+    next_run: Instant,
+    task: Box<dyn FnOnce()>,
+}
+
+struct Interval {
+    next_run: Instant,
+    interval: Duration,
+    task: Box<dyn Fn()>,
+}
+
 thread_local! {
+    static TIMEOUTS: RefCell<AutoIdMap<Timeout>> = RefCell::new(AutoIdMap::new());
+    static INTERVALS: RefCell<AutoIdMap<Interval>> = RefCell::new(AutoIdMap::new());
+    // impl timeout and interval tasks as two separate thread_locals, add a single method to add jobs for timeouts and intervals which returns a next)runt instant, that may be used for recv on next loop
     static POOL: RefCell<LocalPool> = RefCell::new(LocalPool::new());
     static SPAWNER: RefCell<Option<LocalSpawner>> = RefCell::new(None);
 }
@@ -34,20 +51,37 @@ impl EventLoop {
             POOL.with(|rc| {
                 let pool = &mut *rc.borrow_mut();
                 let spawner = pool.spawner();
+                let mut next_deadline = Instant::now().add(Duration::from_secs(10));
                 loop {
-                    let fut: Box<dyn FnOnce() + Send + 'static> =
-                        rx.recv().ok().expect("recv failed");
-                    // this seems redundant.. i could just run the task closure
+                    // todo use deadline when stabilized
+                    let timeout = next_deadline.duration_since(Instant::now());
+                    // recv may fail on timeout
 
-                    spawner
-                        .spawn(async move { fut() })
-                        .ok()
-                        .expect("spawn failed");
+                    let recv_res = rx.recv_timeout(timeout);
+                    if recv_res.is_ok() {
+                        let fut: Box<dyn FnOnce() + Send + 'static> = recv_res.ok().unwrap();
+                        // this seems redundant.. i could just run the task closure
+
+                        spawner
+                            .spawn(async move { fut() })
+                            .ok()
+                            .expect("spawn failed");
+                    }
+
                     pool.run_until_stalled();
 
-                    // shutdown que
+                    // add jobs for timeout and interval here, recalc next timout deadline based on next pending timeout or interval
+                    next_deadline = Self::run_timeouts_and_intervals();
+
+                    // shutdown indicator
                     if SPAWNER.with(|rc| rc.borrow().is_none()) {
                         log::debug!("EventLoop worker loop break");
+                        // drop all timeouts and intervals here
+                        TIMEOUTS.with(|rc| rc.borrow_mut().clear());
+                        INTERVALS.with(|rc| rc.borrow_mut().clear());
+                        // then do run_until_stalled again so finalizers may run
+                        pool.run_until_stalled();
+                        // exit loop
                         break;
                     }
                 }
@@ -59,6 +93,47 @@ impl EventLoop {
             tx,
             join_handle: Some(join_handle),
         }
+    }
+
+    /// run scheduled tasks and calculate next deadline for running other tasks
+    fn run_timeouts_and_intervals() -> Instant {
+        // this is probably not very efficient when there are lots of timeouts, could be optimized by sorting based on next_run and thus not looping over future jobs
+        let now = Instant::now();
+
+        let next_deadline = TIMEOUTS.with(|rc| {
+            let timeouts = &mut rc.borrow_mut();
+            let todos = timeouts.remove_values(|timeout| timeout.next_run.lt(&now));
+            for todo in todos {
+                let task = todo.task;
+                task();
+            }
+            let mut ret = now.add(Duration::from_secs(10));
+            for timeout in timeouts.map.values() {
+                if timeout.next_run.lt(&ret) {
+                    ret = timeout.next_run;
+                }
+            }
+            ret
+        });
+
+        let next_deadline = INTERVALS.with(|rc| {
+            let intervals = &mut *rc.borrow_mut();
+            let mut ret = next_deadline.clone();
+            for interval in intervals.map.values_mut() {
+                if interval.next_run.lt(&now) {
+                    let task = &interval.task;
+                    task();
+                    interval.next_run = now.add(interval.interval);
+                } else {
+                    if interval.next_run.lt(&ret) {
+                        ret = interval.next_run.clone();
+                    }
+                }
+            }
+            ret
+        });
+
+        next_deadline
     }
 
     /// internal method to ensure a member is called from the worker thread
@@ -165,6 +240,49 @@ impl EventLoop {
     pub fn add_void<T: FnOnce() + Send + 'static>(&self, task: T) {
         self.tx.send(Box::new(task)).ok().expect("send failed");
     }
+
+    /// add a timeout (delayed task) to the EventLoop
+    pub fn add_timeout<F: FnOnce() + 'static>(task: F, delay: Duration) -> usize {
+        Self::assert_is_pool_thread();
+        let timeout = Timeout {
+            next_run: Instant::now().add(delay),
+            task: Box::new(task),
+        };
+        TIMEOUTS.with(|rc| rc.borrow_mut().insert(timeout))
+    }
+
+    /// add an interval (repeated task) to the EventLoop
+    pub fn add_interval<F: Fn() + 'static>(task: F, delay: Duration, interval: Duration) -> usize {
+        Self::assert_is_pool_thread();
+        let interval = Interval {
+            next_run: Instant::now().add(delay),
+            interval,
+            task: Box::new(task),
+        };
+        INTERVALS.with(|rc| rc.borrow_mut().insert(interval))
+    }
+
+    /// cancel a previously added timeout
+    pub fn clear_timeout(id: usize) {
+        Self::assert_is_pool_thread();
+        TIMEOUTS.with(|rc| {
+            let map = &mut *rc.borrow_mut();
+            if map.contains_key(&id) {
+                let _ = map.remove(&id);
+            }
+        });
+    }
+
+    /// cancel a previously added interval
+    pub fn clear_interval(id: usize) {
+        Self::assert_is_pool_thread();
+        INTERVALS.with(|rc| {
+            let map = &mut *rc.borrow_mut();
+            if map.contains_key(&id) {
+                let _ = map.remove(&id);
+            }
+        });
+    }
 }
 
 impl Drop for EventLoop {
@@ -185,7 +303,9 @@ impl Drop for EventLoop {
 pub mod tests {
     use crate::eventloop::EventLoop;
     use futures::executor::block_on;
+    use std::ops::Add;
     use std::sync::mpsc::channel;
+    use std::time::{Duration, Instant};
 
     async fn test_as(input: i32) -> i32 {
         input * 12
@@ -212,6 +332,23 @@ pub mod tests {
         let fut = test_loop.add_future(async move { test_as(i).await });
         let out = block_on(fut);
         assert_eq!(43 * 12, out);
+
+        let (tx, rx) = channel();
+        let start = Instant::now();
+        let _ = test_loop.add(move || {
+            EventLoop::add_timeout(
+                move || {
+                    tx.send(129).ok().expect("send failed");
+                },
+                Duration::from_secs(2),
+            );
+        });
+        let res = rx.recv().unwrap();
+        assert_eq!(res, 129);
+        // we should be at least 2 seconds further
+        assert!(Instant::now().gt(&start.add(Duration::from_millis(1999))));
+        // but certainly not 3
+        assert!(Instant::now().lt(&start.add(Duration::from_millis(2999))));
 
         log::debug!("dropping loop");
         drop(test_loop);
