@@ -17,7 +17,7 @@ use std::collections::HashMap;
 pub struct AutoIdMap<T> {
     max_size: usize,
     last_id: usize,
-    pub(crate) map: HashMap<usize, T>,
+    pub map: HashMap<usize, T>,
 }
 
 impl<T> AutoIdMap<T> {
