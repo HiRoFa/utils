@@ -46,6 +46,9 @@ impl<K: std::cmp::Eq + std::hash::Hash, O> Cache<K, O> {
     pub fn len(&self) -> usize {
         self.entries.len()
     }
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
 }
 
 impl<K: std::cmp::Eq + std::hash::Hash + Clone, O> CacheIFace<K, O> for Cache<K, O> {
@@ -78,7 +81,6 @@ impl<K: std::cmp::Eq + std::hash::Hash + Clone, O> CacheIFace<K, O> for Cache<K,
             let now = Instant::now();
             // check if the entry falls outside the resolution , prevents entries being reinserted on every get
             if e.last_used.lt(&now.sub(self.inactive_resolution)) {
-                drop(e);
                 let mut removed_entry = self.entries.remove(key).unwrap();
                 removed_entry.last_used = now;
                 self.entries.insert(key.clone(), removed_entry);
@@ -95,7 +97,6 @@ impl<K: std::cmp::Eq + std::hash::Hash + Clone, O> CacheIFace<K, O> for Cache<K,
             let now = Instant::now();
             // check if the entry falls outside the resolution , prevents entries being reinserted on every get
             if e.last_used.lt(&now.sub(self.inactive_resolution)) {
-                drop(e);
                 let mut removed_entry = self.entries.remove(key).unwrap();
                 removed_entry.last_used = now;
                 self.entries.insert(key.clone(), removed_entry);
@@ -148,7 +149,7 @@ impl<K: std::cmp::Eq + std::hash::Hash + Clone, O> CacheIFace<K, O> for Cache<K,
             item,
             last_used: Instant::now(),
         };
-        self.entries.insert(key.clone(), entry);
+        self.entries.insert(key, entry);
         while self.entries.len() > self.max_size {
             let _drop_entry = self.entries.pop_front();
         }

@@ -69,10 +69,7 @@ impl EventLoop {
                         let fut: Box<dyn FnOnce() + Send + 'static> = recv_res.ok().unwrap();
                         // this seems redundant.. i could just run the task closure
 
-                        spawner
-                            .spawn(async move { fut() })
-                            .ok()
-                            .expect("spawn failed");
+                        spawner.spawn(async move { fut() }).expect("spawn failed");
                     }
 
                     pool.run_until_stalled();
@@ -123,24 +120,20 @@ impl EventLoop {
             ret
         });
 
-        let next_deadline = INTERVALS.with(|rc| {
+        INTERVALS.with(|rc| {
             let intervals = &mut *rc.borrow_mut();
-            let mut ret = next_deadline.clone();
+            let mut ret = next_deadline;
             for interval in intervals.map.values_mut() {
                 if interval.next_run.lt(&now) {
                     let task = &interval.task;
                     task();
                     interval.next_run = now.add(interval.interval);
-                } else {
-                    if interval.next_run.lt(&ret) {
-                        ret = interval.next_run.clone();
-                    }
+                } else if interval.next_run.lt(&ret) {
+                    ret = interval.next_run;
                 }
             }
             ret
-        });
-
-        next_deadline
+        })
     }
 
     /// internal method to ensure a member is called from the worker thread
@@ -157,7 +150,6 @@ impl EventLoop {
                 .as_ref()
                 .unwrap()
                 .spawn_local(fut)
-                .ok()
                 .expect("start fut failed");
         });
     }
@@ -173,7 +165,6 @@ impl EventLoop {
                 .as_ref()
                 .unwrap()
                 .spawn_local_with_handle(fut)
-                .ok()
                 .expect("start fut failed")
         })
     }
@@ -198,8 +189,8 @@ impl EventLoop {
             task()
         } else {
             let (tx, rx) = channel();
-            self.add_void(move || tx.send(task()).ok().expect("could not send"));
-            rx.recv().ok().expect("could not recv")
+            self.add_void(move || tx.send(task()).expect("could not send"));
+            rx.recv().expect("could not recv")
         }
     }
 
@@ -223,9 +214,9 @@ impl EventLoop {
         let (tx, rx) = channel();
         self.add_void(move || {
             let res_fut = Self::add_local_future(fut);
-            tx.send(res_fut).ok().expect("send failed");
+            tx.send(res_fut).expect("send failed");
         });
-        rx.recv().ok().expect("recv failed")
+        rx.recv().expect("recv failed")
     }
 
     /// add a Future to the pool, for when you don't need the result
@@ -242,7 +233,7 @@ impl EventLoop {
     ///    tx.send(1234);
     /// });
     ///
-    /// let res = rx.recv().ok().expect("could not recv");
+    /// let res = rx.recv().expect("could not recv");
     /// assert_eq!(res, 1234);
     /// ```    
     pub fn add_future_void<F: Future<Output = ()> + Send + 'static>(&self, fut: F) {
@@ -252,7 +243,7 @@ impl EventLoop {
     /// add a task to the pool
     pub fn add_void<T: FnOnce() + Send + 'static>(&self, task: T) {
         let tx = self.tx.clone();
-        tx.send(Box::new(task)).ok().expect("send failed");
+        tx.send(Box::new(task)).expect("send failed");
     }
 
     /// add a timeout (delayed task) to the EventLoop
@@ -296,6 +287,12 @@ impl EventLoop {
                 let _ = map.remove(&(id as usize));
             }
         });
+    }
+}
+
+impl Default for EventLoop {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
