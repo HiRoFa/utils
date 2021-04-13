@@ -55,7 +55,13 @@ impl EventLoop {
                 let mut next_deadline = Instant::now().add(Duration::from_secs(10));
                 loop {
                     // todo use deadline when stabilized
-                    let timeout = next_deadline.duration_since(Instant::now());
+                    let now = Instant::now();
+
+                    let timeout = if now.gt(&next_deadline) {
+                        Duration::from_secs(0);
+                    } else {
+                        next_deadline.duration_since(now);
+                    };
                     // recv may fail on timeout
 
                     let recv_res = rx.recv_timeout(timeout);
