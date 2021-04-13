@@ -58,9 +58,9 @@ impl EventLoop {
                     let now = Instant::now();
 
                     let timeout = if now.gt(&next_deadline) {
-                        Duration::from_secs(0);
+                        Duration::from_secs(0)
                     } else {
-                        next_deadline.duration_since(now);
+                        next_deadline.duration_since(now)
                     };
                     // recv may fail on timeout
 
