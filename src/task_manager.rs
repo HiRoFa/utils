@@ -28,7 +28,7 @@ impl TaskManager {
     /// start an async task
     /// # Example
     /// ```rust
-    /// use quickjs_runtime::utils::task_manager::TaskManager;
+    /// use hirofa_utils::task_manager::TaskManager;
     /// let tm = TaskManager::new(2);
     /// let task = async {
     ///     println!("foo");
