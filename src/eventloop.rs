@@ -172,7 +172,7 @@ impl EventLoop {
     }
 
     /// add a task to the EventLoop from within a running task
-    pub fn add_local_void<T: FnOnce() + 'static>(&self, task: T) {
+    pub fn add_local_void<T: FnOnce() + 'static>(task: T) {
         EventLoop::assert_is_pool_thread();
         Self::add_local_future_void(async move { task() });
     }
