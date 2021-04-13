@@ -4,13 +4,13 @@ use futures::task::{LocalSpawnExt, SpawnExt};
 use std::cell::RefCell;
 use std::future::Future;
 use std::ops::Add;
-use std::sync::mpsc::{channel, Sender};
+use std::sync::mpsc::{channel, sync_channel, SyncSender};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 /// the EventLoop struct is a single thread event queue
 pub struct EventLoop {
-    tx: Sender<Box<dyn FnOnce() + Send + 'static>>,
+    tx: SyncSender<Box<dyn FnOnce() + Send + 'static>>,
     join_handle: Option<JoinHandle<()>>,
 }
 
@@ -36,7 +36,8 @@ thread_local! {
 impl EventLoop {
     /// init a new EventLoop
     pub fn new() -> Self {
-        let (tx, rx) = channel();
+        // todo settable buffer size
+        let (tx, rx) = sync_channel(256);
 
         let join_handle = std::thread::spawn(move || {
             POOL.with(|rc| {
@@ -238,7 +239,8 @@ impl EventLoop {
 
     /// add a task to the pool
     pub fn add_void<T: FnOnce() + Send + 'static>(&self, task: T) {
-        self.tx.send(Box::new(task)).ok().expect("send failed");
+        let tx = self.tx.clone();
+        tx.send(Box::new(task)).ok().expect("send failed");
     }
 
     /// add a timeout (delayed task) to the EventLoop
@@ -353,5 +355,13 @@ pub mod tests {
         log::debug!("dropping loop");
         drop(test_loop);
         log::debug!("after loop dropped");
+    }
+
+    #[test]
+    fn test_sync() {
+        fn t<E: Send + Sync>(_s: E) {}
+        let event_loop = EventLoop::new();
+        t(event_loop);
+        println!("yup, EL is sync");
     }
 }
