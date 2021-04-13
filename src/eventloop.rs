@@ -26,8 +26,8 @@ struct Interval {
 }
 
 thread_local! {
-    static TIMEOUTS: RefCell<AutoIdMap<Timeout>> = RefCell::new(AutoIdMap::new());
-    static INTERVALS: RefCell<AutoIdMap<Interval>> = RefCell::new(AutoIdMap::new());
+    static TIMEOUTS: RefCell<AutoIdMap<Timeout>> = RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize));
+    static INTERVALS: RefCell<AutoIdMap<Interval>> = RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize));
     // impl timeout and interval tasks as two separate thread_locals, add a single method to add jobs for timeouts and intervals which returns a next)runt instant, that may be used for recv on next loop
     static POOL: RefCell<LocalPool> = RefCell::new(LocalPool::new());
     static SPAWNER: RefCell<Option<LocalSpawner>> = RefCell::new(None);
@@ -244,24 +244,24 @@ impl EventLoop {
     }
 
     /// add a timeout (delayed task) to the EventLoop
-    pub fn add_timeout<F: FnOnce() + 'static>(task: F, delay: Duration) -> usize {
+    pub fn add_timeout<F: FnOnce() + 'static>(task: F, delay: Duration) -> i32 {
         Self::assert_is_pool_thread();
         let timeout = Timeout {
             next_run: Instant::now().add(delay),
             task: Box::new(task),
         };
-        TIMEOUTS.with(|rc| rc.borrow_mut().insert(timeout))
+        TIMEOUTS.with(|rc| rc.borrow_mut().insert(timeout) as i32)
     }
 
     /// add an interval (repeated task) to the EventLoop
-    pub fn add_interval<F: Fn() + 'static>(task: F, delay: Duration, interval: Duration) -> usize {
+    pub fn add_interval<F: Fn() + 'static>(task: F, delay: Duration, interval: Duration) -> i32 {
         Self::assert_is_pool_thread();
         let interval = Interval {
             next_run: Instant::now().add(delay),
             interval,
             task: Box::new(task),
         };
-        INTERVALS.with(|rc| rc.borrow_mut().insert(interval))
+        INTERVALS.with(|rc| rc.borrow_mut().insert(interval) as i32)
     }
 
     /// cancel a previously added timeout
