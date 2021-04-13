@@ -265,23 +265,23 @@ impl EventLoop {
     }
 
     /// cancel a previously added timeout
-    pub fn clear_timeout(id: usize) {
+    pub fn clear_timeout(id: i32) {
         Self::assert_is_pool_thread();
         TIMEOUTS.with(|rc| {
             let map = &mut *rc.borrow_mut();
-            if map.contains_key(&id) {
-                let _ = map.remove(&id);
+            if map.contains_key(&(id as usize)) {
+                let _ = map.remove(&(id as usize));
             }
         });
     }
 
     /// cancel a previously added interval
-    pub fn clear_interval(id: usize) {
+    pub fn clear_interval(id: i32) {
         Self::assert_is_pool_thread();
         INTERVALS.with(|rc| {
             let map = &mut *rc.borrow_mut();
-            if map.contains_key(&id) {
-                let _ = map.remove(&id);
+            if map.contains_key(&(id as usize)) {
+                let _ = map.remove(&(id as usize));
             }
         });
     }
