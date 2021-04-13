@@ -1,5 +1,5 @@
 use crate::auto_id_map::AutoIdMap;
-use futures::executor::{block_on, LocalPool, LocalSpawner};
+use futures::executor::{LocalPool, LocalSpawner};
 use futures::task::{LocalSpawnExt, SpawnExt};
 use std::cell::RefCell;
 use std::future::Future;
@@ -191,7 +191,9 @@ impl EventLoop {
         if Self::is_pool_thread() {
             task()
         } else {
-            block_on(self.add(task))
+            let (tx, rx) = channel();
+            self.add_void(move || tx.send(task()).ok().expect("could not send"));
+            rx.recv().ok().expect("could not recv")
         }
     }
 
