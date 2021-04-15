@@ -156,7 +156,7 @@ impl EventLoop {
     }
 
     /// internal method to ensure a member is called from the worker thread
-    fn is_my_pool_thread(&self) -> bool {
+    pub fn is_my_pool_thread(&self) -> bool {
         LOCAL_ID.with(|rc| {
             let opt = &*rc.borrow();
             opt.is_some() && opt.unwrap() == self.id
@@ -164,7 +164,7 @@ impl EventLoop {
     }
 
     /// internal method to ensure a member is called from the worker thread
-    fn is_a_pool_thread() -> bool {
+    pub fn is_a_pool_thread() -> bool {
         SPAWNER.with(|rc| rc.borrow().is_some())
     }
 
