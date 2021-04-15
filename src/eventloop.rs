@@ -1,17 +1,28 @@
 use crate::auto_id_map::AutoIdMap;
 use futures::executor::{LocalPool, LocalSpawner};
 use futures::task::{LocalSpawnExt, SpawnExt};
+use lazy_static::lazy_static;
 use std::cell::RefCell;
 use std::future::Future;
 use std::ops::Add;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, sync_channel, SyncSender};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
+
+lazy_static! {
+    static ref IDS: AtomicUsize = AtomicUsize::new(0);
+}
+
+fn next_id() -> usize {
+    IDS.fetch_add(1, Ordering::SeqCst)
+}
 
 /// the EventLoop struct is a single thread event queue
 pub struct EventLoop {
     tx: SyncSender<Box<dyn FnOnce() + Send + 'static>>,
     join_handle: Option<JoinHandle<()>>,
+    id: usize,
 }
 
 struct Timeout {
@@ -31,6 +42,7 @@ thread_local! {
     // impl timeout and interval tasks as two separate thread_locals, add a single method to add jobs for timeouts and intervals which returns a next)runt instant, that may be used for recv on next loop
     static POOL: RefCell<LocalPool> = RefCell::new(LocalPool::new());
     static SPAWNER: RefCell<Option<LocalSpawner>> = RefCell::new(None);
+    static LOCAL_ID: RefCell<Option<usize>> = RefCell::new(None);
 }
 
 impl EventLoop {
@@ -39,7 +51,13 @@ impl EventLoop {
         // todo settable buffer size
         let (tx, rx) = sync_channel(256);
 
+        let id = next_id();
+
         let join_handle = std::thread::spawn(move || {
+            LOCAL_ID.with(|rc| {
+                rc.borrow_mut().replace(id);
+            });
+
             POOL.with(|rc| {
                 let pool = &mut *rc.borrow_mut();
 
@@ -96,6 +114,7 @@ impl EventLoop {
         Self {
             tx,
             join_handle: Some(join_handle),
+            id,
         }
     }
 
@@ -137,13 +156,21 @@ impl EventLoop {
     }
 
     /// internal method to ensure a member is called from the worker thread
-    fn is_pool_thread() -> bool {
+    fn is_my_pool_thread(&self) -> bool {
+        LOCAL_ID.with(|rc| {
+            let opt = &*rc.borrow();
+            opt.is_some() && opt.unwrap() == self.id
+        })
+    }
+
+    /// internal method to ensure a member is called from the worker thread
+    fn is_a_pool_thread() -> bool {
         SPAWNER.with(|rc| rc.borrow().is_some())
     }
 
     /// add a future to the EventLoop from within a running task
     pub fn add_local_future_void<F: Future<Output = ()> + 'static>(fut: F) {
-        assert!(EventLoop::is_pool_thread());
+        debug_assert!(EventLoop::is_a_pool_thread());
         SPAWNER.with(move |rc| {
             let spawner = &*rc.borrow();
             spawner
@@ -158,7 +185,7 @@ impl EventLoop {
     pub fn add_local_future<R: Send + 'static, F: Future<Output = R> + 'static>(
         fut: F,
     ) -> impl Future<Output = R> {
-        assert!(EventLoop::is_pool_thread());
+        debug_assert!(EventLoop::is_a_pool_thread());
         SPAWNER.with(move |rc| {
             let spawner = &*rc.borrow();
             spawner
@@ -171,7 +198,7 @@ impl EventLoop {
 
     /// add a task to the EventLoop from within a running task
     pub fn add_local_void<T: FnOnce() + 'static>(task: T) {
-        assert!(EventLoop::is_pool_thread());
+        debug_assert!(EventLoop::is_a_pool_thread());
         Self::add_local_future_void(async move { task() });
     }
 
@@ -185,7 +212,7 @@ impl EventLoop {
 
     /// execute a task in the EventLoop and block until it completes
     pub fn exe<R: Send + 'static, T: FnOnce() -> R + Send + 'static>(&self, task: T) -> R {
-        if Self::is_pool_thread() {
+        if Self::is_my_pool_thread(self) {
             task()
         } else {
             let (tx, rx) = channel();
@@ -248,7 +275,7 @@ impl EventLoop {
 
     /// add a timeout (delayed task) to the EventLoop
     pub fn add_timeout<F: FnOnce() + 'static>(task: F, delay: Duration) -> i32 {
-        assert!(EventLoop::is_pool_thread());
+        debug_assert!(EventLoop::is_a_pool_thread());
         let timeout = Timeout {
             next_run: Instant::now().add(delay),
             task: Box::new(task),
@@ -258,7 +285,7 @@ impl EventLoop {
 
     /// add an interval (repeated task) to the EventLoop
     pub fn add_interval<F: Fn() + 'static>(task: F, delay: Duration, interval: Duration) -> i32 {
-        assert!(EventLoop::is_pool_thread());
+        debug_assert!(EventLoop::is_a_pool_thread());
         let interval = Interval {
             next_run: Instant::now().add(delay),
             interval,
@@ -269,7 +296,7 @@ impl EventLoop {
 
     /// cancel a previously added timeout
     pub fn clear_timeout(id: i32) {
-        assert!(EventLoop::is_pool_thread());
+        debug_assert!(EventLoop::is_a_pool_thread());
         TIMEOUTS.with(|rc| {
             let map = &mut *rc.borrow_mut();
             if map.contains_key(&(id as usize)) {
@@ -280,7 +307,7 @@ impl EventLoop {
 
     /// cancel a previously added interval
     pub fn clear_interval(id: i32) {
-        assert!(EventLoop::is_pool_thread());
+        debug_assert!(EventLoop::is_a_pool_thread());
         INTERVALS.with(|rc| {
             let map = &mut *rc.borrow_mut();
             if map.contains_key(&(id as usize)) {

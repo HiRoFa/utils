@@ -1,6 +1,6 @@
 [package]
 name = "hirofa_utils"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["HiRoFa <info@hirofa.com>"]
 edition = "2018"
 description = "Utils project which is depended on by several other projects"
@@ -19,6 +19,7 @@ either = "1.6.0"
 linked-hash-map = "0.5.3"
 futures="0.3"
 tokio={version="1", features=["full"]}
+
 
 [dev-dependencies.cargo-husky]
 version = "1.5.0"
