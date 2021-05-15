@@ -6,7 +6,6 @@
 pub mod adapters;
 pub mod facades;
 pub mod fetch;
-pub mod fetch_impl;
 
 pub trait JsError {
     fn get_message(&self) -> &str;
