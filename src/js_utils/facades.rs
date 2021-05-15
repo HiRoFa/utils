@@ -1,8 +1,12 @@
 use crate::js_utils::adapters::{JsContextAdapter, JsValueAdapter};
 
+pub struct JsProxy {}
+
 pub trait JsRuntimeFacade {}
 
-pub trait JsContextFacade {}
+pub trait JsContextFacade {
+    fn install_proxy(&self, js_proxy: JsProxy);
+}
 
 pub struct JsValueFacade {}
 
