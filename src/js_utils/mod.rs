@@ -7,11 +7,21 @@ pub mod adapters;
 pub mod facades;
 pub mod fetch;
 
-pub trait JsError {
-    fn get_message(&self) -> &str;
-    fn get_filename(&self) -> Option<&str>;
-    fn get_line_num(&self) -> usize;
-    fn get_position(&self) -> usize;
+pub struct JsError {}
+
+impl JsError {
+    pub fn get_message(&self) -> &str {
+        unimplemented!()
+    }
+    pub fn get_filename(&self) -> Option<&str> {
+        unimplemented!()
+    }
+    pub fn get_line_num(&self) -> usize {
+        unimplemented!()
+    }
+    pub fn get_position(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 pub struct Script {
