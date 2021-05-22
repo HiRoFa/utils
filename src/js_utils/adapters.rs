@@ -55,4 +55,9 @@ pub trait JsValueAdapter {
     fn is_string(&self) -> bool;
     fn is_function(&self) -> bool;
     fn is_bigint(&self) -> bool;
+    fn type_of(&self) -> &'static str;
+    fn to_bool(&self) -> bool;
+    fn to_i32(&self) -> i32;
+    fn to_f64(&self) -> f64;
+    fn to_string(&self) -> String;
 }

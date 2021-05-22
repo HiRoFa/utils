@@ -13,7 +13,7 @@ pub trait JsRuntimeFacade {
 
 pub trait JsContextFacade {
     fn js_install_proxy(&self, js_proxy: JsProxy);
-    fn js_eval(&self, script: Script) -> dyn Future<Output = Result<JsValueFacade, JsError>>;
+    fn js_eval(&self, script: Script) -> Box<dyn Future<Output = Result<JsValueFacade, JsError>>>;
     fn js_loop_exe<R, C: FnOnce(&dyn JsRuntimeAdapter, &dyn JsContextAdapter) -> R>(
         &self,
         consumer: C,
