@@ -6,7 +6,7 @@ pub trait JsRuntimeAdapter {
 
     fn js_create_context(&self, id: &str) -> Result<Box<Self::JsValueAdapterType>, JsError>;
     fn js_get_context(&self, id: &str) -> Option<Box<Self::JsValueAdapterType>>;
-    fn js_get_main_context(&self) -> Option<&Self::JsContextAdapterType>;
+    fn js_get_main_context(&self) -> &Self::JsContextAdapterType;
 }
 
 pub type JsFunction =
