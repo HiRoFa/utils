@@ -86,6 +86,12 @@ pub trait JsValueAdapter {
     fn js_is_string(&self) -> bool;
     fn js_is_function(&self) -> bool;
     fn js_is_bigint(&self) -> bool;
+    fn js_is_null(&self) -> bool;
+    fn js_is_undefined(&self) -> bool;
+    fn js_is_null_or_undefined(&self) -> bool {
+        self.js_is_null() || self.js_is_undefined()
+    }
+
     fn js_type_of(&self) -> &'static str;
     fn js_to_bool(&self) -> bool;
     fn js_to_i32(&self) -> i32;
