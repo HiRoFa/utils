@@ -4,13 +4,13 @@ pub trait JsRuntimeAdapter {
     type JsValueAdapterType: JsValueAdapter;
     type JsContextAdapterType: JsContextAdapter;
 
-    fn js_create_context(&self, id: &str) -> Result<Box<Self::JsValueAdapterType>, JsError>;
-    fn js_get_context(&self, id: &str) -> Option<Box<Self::JsValueAdapterType>>;
+    fn js_create_context(&self, id: &str) -> Result<Box<Self::JsContextAdapterType>, JsError>;
+    fn js_get_context(&self, id: &str) -> Option<Box<Self::JsContextAdapterType>>;
     fn js_get_main_context(&self) -> &Self::JsContextAdapterType;
 }
 
-pub type JsFunction =
-    dyn Fn(dyn JsValueAdapter, Vec<dyn JsValueAdapter>) -> Result<dyn JsValueAdapter, JsError>;
+//pub type JsFunction =
+//    dyn Fn(dyn JsValueAdapter, Vec<dyn JsValueAdapter>) -> Result<dyn JsValueAdapter, JsError>;
 
 pub trait JsContextAdapter {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
@@ -38,47 +38,118 @@ pub trait JsContextAdapter {
     fn js_eval_module(
         &self,
         script: Script,
-        return_value: &mut dyn JsValueAdapter,
-    ) -> Result<(), JsError>;
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
     fn js_get_namespace(
         &self,
         namespace: &[&str],
-        return_value: &mut dyn JsValueAdapter,
-    ) -> Result<(), JsError>;
-    fn js_invoke_function(
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+    // function methods
+    fn js_function_invoke(
         &self,
         namespace: &[&str],
         method_name: &str,
-        args: &[&dyn JsValueAdapter],
-        return_value: &mut dyn JsValueAdapter,
-    ) -> Result<(), JsError>;
-    fn js_invoke_function2(
+        args: &[&<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+    fn js_function_invoke2(
         &self,
-        this_obj: &dyn JsValueAdapter,
+        this_obj: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         method_name: &str,
-        args: &[&dyn JsValueAdapter],
-        return_value: &mut dyn JsValueAdapter,
-    ) -> Result<(), JsError>;
-    fn js_get_object_property(
+        args: &[&<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+    fn js_function_invoke3(
         &self,
-        object: &dyn JsValueAdapter,
-        property_name: &str,
-        return_value: &mut dyn JsValueAdapter,
-    ) -> Result<(), JsError>;
-    fn js_delete_object_property(
+        this_obj: Option<&<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType>,
+        function_obj: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        args: &[&<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+    //object functions
+    fn js_object_delete_property(
         &self,
-        object: &dyn JsValueAdapter,
+        object: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         property_name: &str,
     ) -> Result<(), JsError>;
-    fn js_set_object_property(
+    fn js_object_set_property(
         &self,
-        object: &dyn JsValueAdapter,
+        object: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         property_name: &str,
-        property: &mut dyn JsValueAdapter,
+        property: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
     ) -> Result<(), JsError>;
+
+    fn js_object_get_property(
+        &self,
+        object: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        property_name: &str,
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+    fn js_object_create_new(
+        &self,
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+    fn js_object_get_properties(
+        &self,
+        object: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+    ) -> Result<Vec<String>, JsError>;
+
+    // array functions
+    fn js_array_get_element(
+        &self,
+        array: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        index: u32,
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+    fn js_array_set_element(
+        &self,
+        array: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        index: u32,
+        element: <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+    ) -> Result<(), JsError>;
+    fn js_array_get_length(
+        &self,
+        array: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+    ) -> Result<u32, JsError>;
+    fn js_array_create_new(
+        &self,
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+    // array_foreach
+    // object_foreach
+    // promises
+
+    // create new
+    // resolve/reject
+    // add then/catch/finally
+
+    // cache obj (add/consume/delete/with)
+
+    // instanceof
 }
 
 pub trait JsValueAdapter {
+    type JsRuntimeAdapterType: JsRuntimeAdapter;
+
     fn js_is_bool(&self) -> bool;
     fn js_is_i32(&self) -> bool;
     fn js_is_f64(&self) -> bool;
