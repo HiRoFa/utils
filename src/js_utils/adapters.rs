@@ -99,7 +99,7 @@ pub trait JsContextAdapter {
         <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         JsError,
     >;
-    fn js_object_create_new(
+    fn js_object_create(
         &self,
     ) -> Result<
         <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
@@ -129,12 +129,48 @@ pub trait JsContextAdapter {
         &self,
         array: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
     ) -> Result<u32, JsError>;
-    fn js_array_create_new(
+    fn js_array_create(
         &self,
     ) -> Result<
         <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         JsError,
     >;
+
+    fn js_null_create(
+        &self,
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+    fn js_i32_create(
+        &self,
+        val: i32,
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+    fn js_string_create(
+        &self,
+        val: &str,
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+    fn js_boolean_create(
+        &self,
+        val: bool,
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+    fn js_f64_create(
+        &self,
+        val: f64,
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+
     // array_foreach
     // object_foreach
     // promises
