@@ -25,8 +25,8 @@ pub trait JsContextAdapter {
 
     fn js_install_function<
         F: Fn(
-            <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsContextAdapterType,
-            <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+            &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsContextAdapterType,
+            &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
             Vec<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType>,
         ) -> Result<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType, JsError>,
     >(
