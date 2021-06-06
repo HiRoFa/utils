@@ -1,3 +1,8 @@
+//! fetch api support
+//!
+//!
+//!
+
 use std::future::Future;
 use std::str::FromStr;
 
