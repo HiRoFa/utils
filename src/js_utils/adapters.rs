@@ -78,6 +78,18 @@ pub trait JsContextAdapter {
         <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         JsError,
     >;
+    fn js_function_create<
+        F: Fn(
+            &Self,
+            <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+            Vec<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType>,
+        ) -> Result<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType, JsError> + 'static,
+    >(
+        &self,
+        name: &str,
+        js_function: F,
+        arg_count: u32,
+    ) -> Result<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType, JsError>;
     //object functions
     fn js_object_delete_property(
         &self,
@@ -109,7 +121,11 @@ pub trait JsContextAdapter {
         &self,
         object: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
     ) -> Result<Vec<String>, JsError>;
-
+    fn js_object_traverse<F, R>(
+        &self,
+        object: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        visitor: F
+    ) -> Result<Vec<R>, JsError> where F: Fn(&str, &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType) -> Result<R, JsError>;
     // array functions
     fn js_array_get_element(
         &self,
@@ -135,6 +151,12 @@ pub trait JsContextAdapter {
         <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         JsError,
     >;
+    fn js_array_traverse<F, R>(
+        &self,
+        array: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        visitor: F
+    ) -> Result<Vec<R>, JsError> where F: Fn(u32, &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType) -> Result<R, JsError>;
+    // primitives
 
     fn js_null_create(
         &self,
@@ -171,10 +193,7 @@ pub trait JsContextAdapter {
         JsError,
     >;
 
-    // array_foreach
-    // object_foreach
     // promises
-
     // create new
     // resolve/reject
     // add then/catch/finally
