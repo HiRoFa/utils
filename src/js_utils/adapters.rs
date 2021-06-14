@@ -2,6 +2,7 @@ use crate::js_utils::{JsError, Script};
 
 pub trait JsRuntimeAdapter {
     type JsValueAdapterType: JsValueAdapter + Clone;
+    type JsPromiseAdapterType: JsPromiseAdapter + Clone;
     type JsContextAdapterType: JsContextAdapter;
 
     fn js_create_context(&self, id: &str) -> Result<Box<Self::JsContextAdapterType>, JsError>;
@@ -205,29 +206,9 @@ pub trait JsContextAdapter {
     fn js_promise_create(
         &self,
     ) -> Result<
-        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsPromiseAdapterType,
         JsError,
     >;
-
-    fn js_promise_resolve(
-        &self,
-        promise: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        resolution: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-    ) -> Result<(), JsError>;
-
-    fn js_promise_reject(
-        &self,
-        promise: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        rejection: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-    ) -> Result<(), JsError>;
-
-    fn js_promise_add_reactions<F>(
-        &self,
-        promise: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        then: Option<F>,
-        catch: Option<F>,
-        finally: Option<F>,
-    ) -> Result<(), JsError> where F: Fn(&Self, <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType);
 
     // cache
     fn js_cache_add(
@@ -250,6 +231,30 @@ pub trait JsContextAdapter {
         object: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         constructor: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
     ) -> bool;
+}
+
+pub trait JsPromiseAdapter {
+    type JsRuntimeAdapterType: JsRuntimeAdapter;
+    fn js_promise_resolve(
+        &self,
+        context: &<<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsContextAdapterType,
+        resolution: &<<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+    ) -> Result<(), JsError>;
+    fn js_promise_reject(
+        &self,
+        context: &<<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsContextAdapterType,
+        rejection: &<<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+    ) -> Result<(), JsError>;
+    fn js_promise_add_reactions<F>(
+        &self,
+        context: &<<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsContextAdapterType,
+        then: Option<F>,
+        catch: Option<F>,
+        finally: Option<F>,
+    ) -> Result<(), JsError> where F: Fn(&<<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType) -> Result<(), JsError> + 'static;
+    fn js_promise_get_value(
+        &self,
+    ) -> <<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType;
 }
 
 pub trait JsValueAdapter {
