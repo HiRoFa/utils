@@ -1,7 +1,7 @@
 use crate::js_utils::{JsError, Script};
 
 pub trait JsRuntimeAdapter {
-    type JsValueAdapterType: JsValueAdapter;
+    type JsValueAdapterType: JsValueAdapter + Clone;
     type JsContextAdapterType: JsContextAdapter;
 
     fn js_create_context(&self, id: &str) -> Result<Box<Self::JsContextAdapterType>, JsError>;
@@ -117,6 +117,14 @@ pub trait JsContextAdapter {
         <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         JsError,
     >;
+    fn js_object_construct(
+        &self,
+        constructor: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        args: &[&<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
     fn js_object_get_properties(
         &self,
         object: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
@@ -194,13 +202,54 @@ pub trait JsContextAdapter {
     >;
 
     // promises
-    // create new
-    // resolve/reject
-    // add then/catch/finally
+    fn js_promise_create(
+        &self,
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
 
-    // cache obj (add/consume/delete/with)
+    fn js_promise_resolve(
+        &self,
+        promise: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        resolution: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+    ) -> Result<(), JsError>;
+
+    fn js_promise_reject(
+        &self,
+        promise: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        rejection: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+    ) -> Result<(), JsError>;
+
+    fn js_promise_add_reactions<F>(
+        &self,
+        promise: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        then: Option<F>,
+        catch: Option<F>,
+        finally: Option<F>,
+    ) -> Result<(), JsError> where F: Fn(&Self, <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType);
+
+    // cache
+    fn js_cache_add(
+        &self,
+        object: <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+    ) -> usize;
+    fn js_cache_dispose(&self, id: usize);
+    fn js_cache_borrow(
+        &self,
+        id: usize,
+    ) -> &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType;
+    fn js_cache_consume(
+        &self,
+        id: usize,
+    ) -> <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType;
 
     // instanceof
+    fn js_instance_of(
+        &self,
+        object: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        constructor: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+    ) -> bool;
 }
 
 pub trait JsValueAdapter {
