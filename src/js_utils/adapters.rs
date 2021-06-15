@@ -214,15 +214,16 @@ pub trait JsContextAdapter {
     fn js_cache_add(
         &self,
         object: <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-    ) -> usize;
-    fn js_cache_dispose(&self, id: usize);
-    fn js_cache_borrow(
+    ) -> i32;
+    fn js_cache_dispose(&self, id: i32);
+    fn js_cache_with<C, R>(
         &self,
-        id: usize,
-    ) -> &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType;
+        id: i32,
+        consumer: C
+    ) -> R where C: FnOnce(&<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType) -> R;
     fn js_cache_consume(
         &self,
-        id: usize,
+        id: i32,
     ) -> <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType;
 
     // instanceof
