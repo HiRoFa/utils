@@ -10,9 +10,6 @@ pub trait JsRuntimeAdapter {
     fn js_get_main_context(&self) -> &Self::JsContextAdapterType;
 }
 
-//pub type JsFunction =
-//    dyn Fn(dyn JsValueAdapter, Vec<dyn JsValueAdapter>) -> Result<dyn JsValueAdapter, JsError>;
-
 pub trait JsContextAdapter {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
 
@@ -23,16 +20,27 @@ pub trait JsContextAdapter {
         <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         JsError,
     >;
-
-    fn js_install_function<
+    #[allow(clippy::type_complexity)]
+    fn js_install_function(
+        &self,
+        namespace: &[&str],
+        name: &str,
+        js_function: fn(
+            &Self,
+            &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+            &[<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
+        ) -> Result<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType, JsError>,
+        arg_count: u32,
+    ) -> Result<(), JsError>;
+    fn js_install_closure<
         F: Fn(
             &Self,
-            <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-            Vec<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType>,
+            &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+            &[<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
         ) -> Result<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType, JsError> + 'static,
     >(
         &self,
-        namespace: Vec<&str>,
+        namespace: &[&str],
         name: &str,
         js_function: F,
         arg_count: u32,
@@ -82,8 +90,8 @@ pub trait JsContextAdapter {
     fn js_function_create<
         F: Fn(
             &Self,
-            <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-            Vec<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType>,
+            &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+            &[<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
         ) -> Result<<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType, JsError> + 'static,
     >(
         &self,
