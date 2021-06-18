@@ -1,6 +1,7 @@
 use crate::js_utils::adapters::{JsContextAdapter, JsRuntimeAdapter};
 use crate::js_utils::{JsError, Script};
 use std::future::Future;
+use std::pin::Pin;
 
 pub struct JsProxy {}
 
@@ -37,10 +38,11 @@ pub trait JsContextFacade {
 
     fn js_install_proxy(&self, js_proxy: JsProxy);
 
+    #[allow(clippy::type_complexity)]
     fn js_eval(
         &self,
         script: Script,
-    ) -> Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>;
+    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>>;
 
     fn js_loop_sync<
         R : Send + 'static,
@@ -49,7 +51,7 @@ pub trait JsContextFacade {
         &self,
         consumer: C,
     ) -> R;
-    fn js_loop<R : Send + 'static, C>(&self, consumer: C) -> Box<dyn Future<Output = Result<R, JsError>>>
+    fn js_loop<R : Send + 'static, C>(&self, consumer: C) -> Pin<Box<dyn Future<Output = Result<R, JsError>>>>
     where
         C: FnOnce(&<<Self as JsContextFacade>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &Self::JsContextAdapterType) -> Result<R, JsError> + Send + 'static;
     fn js_loop_void<C>(&self, consumer: C) where C: FnOnce(&<<Self as JsContextFacade>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &Self::JsContextAdapterType) + Send + 'static;
