@@ -1,4 +1,4 @@
-use crate::js_utils::facades::JsValueFacade;
+use crate::js_utils::facades::{JsNull, JsUndefined, JsValueFacade};
 use crate::js_utils::{JsError, Script};
 
 pub trait JsRuntimeAdapter {
@@ -16,8 +16,20 @@ pub trait JsContextAdapter {
 
     fn to_js_value_facade(
         &self,
-        value: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-    ) -> Box<dyn JsValueFacade>;
+        value: &dyn JsValueAdapter<JsRuntimeAdapterType = Self::JsRuntimeAdapterType>,
+    ) -> Box<dyn JsValueFacade> {
+        if value.js_is_null() {
+            Box::new(JsNull {})
+        } else if value.js_is_undefined() {
+            Box::new(JsUndefined {})
+        } else if value.js_is_i32() {
+            Box::new(value.js_to_i32())
+        } else if value.js_is_bool() {
+            Box::new(value.js_to_bool())
+        } else {
+            Box::new(JsUndefined {})
+        }
+    }
 
     fn from_js_value_facade(
         &self,
