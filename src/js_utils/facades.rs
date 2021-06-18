@@ -1,4 +1,4 @@
-use crate::js_utils::adapters::{JsContextAdapter, JsRuntimeAdapter, JsValueAdapter};
+use crate::js_utils::adapters::{JsContextAdapter, JsRuntimeAdapter};
 use crate::js_utils::{JsError, Script};
 use std::future::Future;
 
@@ -8,7 +8,8 @@ pub trait JsRuntimeBuilder {
     type JsRuntimeFacadeType: JsRuntimeFacade;
     fn build(self) -> Self::JsRuntimeFacadeType;
 }
-
+/// The JsRuntime facade is the main entry point to the JavaScript engine, it is thread safe and
+/// handles the logic for transferring data from and to the JsRuntimeAdapter
 pub trait JsRuntimeFacade {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
     type JsContextFacadeType: JsContextFacade;
@@ -36,7 +37,10 @@ pub trait JsContextFacade {
 
     fn js_install_proxy(&self, js_proxy: JsProxy);
 
-    fn js_eval(&self, script: Script) -> Box<dyn Future<Output = Result<JsValueFacade, JsError>>>;
+    fn js_eval(
+        &self,
+        script: Script,
+    ) -> Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>;
 
     fn js_loop_sync<
         R : Send + 'static,
@@ -51,13 +55,63 @@ pub trait JsContextFacade {
     fn js_loop_void<C>(&self, consumer: C) where C: FnOnce(&<<Self as JsContextFacade>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &Self::JsContextAdapterType) + Send + 'static;
 }
 
-pub struct JsValueFacade {}
+/// The JsValueFacade is a thread safe Sendable representation of a variable in the Script engine
 
-impl JsValueFacade {
-    pub fn from_js_value_adapter<C: JsContextAdapter, V: JsValueAdapter>(
-        _ctx: &C,
-        _value: &V,
-    ) -> JsValueFacade {
-        unimplemented!()
+pub trait JsValueFacade: Send {
+    fn js_is_i32(&self) -> bool {
+        false
+    }
+    fn js_is_bool(&self) -> bool {
+        false
+    }
+    fn js_is_null(&self) -> bool {
+        false
+    }
+    fn js_is_undefined(&self) -> bool {
+        false
+    }
+    fn js_is_null_or_undefined(&self) -> bool {
+        self.js_is_null() || self.js_is_undefined()
+    }
+    fn js_as_i32(&self) -> i32 {
+        panic!("not an i32");
+    }
+    fn js_as_bool(&self) -> bool {
+        panic!("not a bool");
+    }
+}
+
+pub struct JsNull {}
+pub struct JsUndefined {}
+
+impl JsValueFacade for JsNull {
+    fn js_is_null(&self) -> bool {
+        true
+    }
+}
+
+impl JsValueFacade for JsUndefined {
+    fn js_is_undefined(&self) -> bool {
+        true
+    }
+}
+
+impl JsValueFacade for i32 {
+    fn js_is_i32(&self) -> bool {
+        true
+    }
+
+    fn js_as_i32(&self) -> i32 {
+        *self
+    }
+}
+
+impl JsValueFacade for bool {
+    fn js_is_bool(&self) -> bool {
+        true
+    }
+
+    fn js_as_bool(&self) -> bool {
+        *self
     }
 }

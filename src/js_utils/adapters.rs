@@ -1,3 +1,4 @@
+use crate::js_utils::facades::JsValueFacade;
 use crate::js_utils::{JsError, Script};
 
 pub trait JsRuntimeAdapter {
@@ -12,6 +13,19 @@ pub trait JsRuntimeAdapter {
 
 pub trait JsContextAdapter {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
+
+    fn to_js_value_facade(
+        &self,
+        value: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+    ) -> Box<dyn JsValueFacade>;
+
+    fn from_js_value_facade(
+        &self,
+        value: &dyn JsValueFacade,
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
 
     fn js_eval(
         &self,
