@@ -38,11 +38,22 @@ pub trait JsContextFacade {
 
     fn js_install_proxy(&self, js_proxy: JsProxy);
 
+    /// eval a script, please note that eval should not be used for production code, you should always
+    /// use modules or functions and invoke them
+    /// eval will always need to parse script and some engines like StarLight even require a different syntax (return(1); vs (1);)
     #[allow(clippy::type_complexity)]
     fn js_eval(
         &self,
         script: Script,
     ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>>;
+
+    // function methods
+    fn js_function_invoke(
+        &self,
+        namespace: &[&'static str],
+        method_name: &'static str,
+        args: Vec<Box<dyn JsValueFacade>>,
+    ) -> Result<Box<dyn JsValueFacade>, JsError>;
 
     fn js_loop_sync<
         R : Send + 'static,
@@ -59,7 +70,7 @@ pub trait JsContextFacade {
 
 /// The JsValueFacade is a thread safe Sendable representation of a variable in the Script engine
 
-pub trait JsValueFacade: Send {
+pub trait JsValueFacade: Send + Sync {
     fn js_is_i32(&self) -> bool {
         false
     }
