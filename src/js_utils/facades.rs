@@ -39,24 +39,24 @@ pub trait JsContextFacade {
     fn js_eval(&self, script: Script) -> Box<dyn Future<Output = Result<JsValueFacade, JsError>>>;
 
     fn js_loop_sync<
-        R,
-        C: FnOnce(&<<Self as JsContextFacade>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &Self::JsContextAdapterType) -> R,
+        R : Send + 'static,
+        C: FnOnce(&<<Self as JsContextFacade>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &Self::JsContextAdapterType) -> R + Send + 'static,
     >(
         &self,
         consumer: C,
     ) -> R;
-    fn js_loop<R, C>(&self) -> Box<dyn Future<Output = Result<R, JsError>>>
+    fn js_loop<R : Send + 'static, C>(&self, consumer: C) -> Box<dyn Future<Output = Result<R, JsError>>>
     where
-        C: FnOnce(&<<Self as JsContextFacade>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &Self::JsContextAdapterType) -> Result<R, JsError>;
-    fn js_loop_void<C>(&self, consumer: C) where C: FnOnce(&<<Self as JsContextFacade>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &Self::JsContextAdapterType);
+        C: FnOnce(&<<Self as JsContextFacade>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &Self::JsContextAdapterType) -> Result<R, JsError> + Send + 'static;
+    fn js_loop_void<C>(&self, consumer: C) where C: FnOnce(&<<Self as JsContextFacade>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &Self::JsContextAdapterType) + Send + 'static;
 }
 
 pub struct JsValueFacade {}
 
 impl JsValueFacade {
-    pub fn from_js_value_adapter<C: JsContextAdapter + Sized, V: JsValueAdapter + Sized>(
-        _ctx: C,
-        _value: V,
+    pub fn from_js_value_adapter<C: JsContextAdapter, V: JsValueAdapter>(
+        _ctx: &C,
+        _value: &V,
     ) -> JsValueFacade {
         unimplemented!()
     }
