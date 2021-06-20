@@ -1,5 +1,8 @@
+use crate::js_utils::adapters::proxies::{JsProxy, JsProxyHandle};
 use crate::js_utils::facades::{JsNull, JsUndefined, JsValueFacade};
 use crate::js_utils::{JsError, Script};
+
+pub mod proxies;
 
 pub trait JsRuntimeAdapter {
     type JsValueAdapterType: JsValueAdapter + Clone;
@@ -46,6 +49,24 @@ pub trait JsContextAdapter {
         <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         JsError,
     >;
+
+    fn js_proxy_install(&self, proxy: JsProxy<Self::JsRuntimeAdapterType>);
+    fn js_proxy_instantiate(
+        &self,
+        namespace: &[&str],
+        class_name: &str,
+        arguments: &[<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
+    ) -> Result<
+        <<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
+    fn js_proxy_invoke_event(
+        &self,
+        proxy_handle: &JsProxyHandle,
+        event_id: &str,
+        event_obj: &<<Self as JsContextAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+    );
+
     #[allow(clippy::type_complexity)]
     fn js_install_function(
         &self,
