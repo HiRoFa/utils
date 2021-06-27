@@ -1,4 +1,5 @@
 use crate::js_utils::adapters::{JsContextAdapter, JsRuntimeAdapter};
+use crate::js_utils::facades::JsValueType::*;
 use crate::js_utils::{JsError, Script};
 use std::future::Future;
 use std::pin::Pin;
@@ -70,6 +71,20 @@ pub trait JsContextFacade {
 
 /// The JsValueFacade is a thread safe Sendable representation of a variable in the Script engine
 
+pub enum JsValueType {
+    I32,
+    F64,
+    String,
+    Boolean,
+    Object,
+    Function,
+    BigInt,
+    Promise,
+    Date,
+    Null,
+    Undefined,
+}
+
 pub trait JsValueFacade: Send + Sync {
     fn js_is_i32(&self) -> bool {
         false
@@ -92,6 +107,7 @@ pub trait JsValueFacade: Send + Sync {
     fn js_as_bool(&self) -> bool {
         panic!("not a bool");
     }
+    fn js_get_type(&self) -> JsValueType;
 }
 
 pub struct JsNull {}
@@ -101,11 +117,18 @@ impl JsValueFacade for JsNull {
     fn js_is_null(&self) -> bool {
         true
     }
+
+    fn js_get_type(&self) -> JsValueType {
+        Null
+    }
 }
 
 impl JsValueFacade for JsUndefined {
     fn js_is_undefined(&self) -> bool {
         true
+    }
+    fn js_get_type(&self) -> JsValueType {
+        Undefined
     }
 }
 
@@ -117,6 +140,10 @@ impl JsValueFacade for i32 {
     fn js_as_i32(&self) -> i32 {
         *self
     }
+
+    fn js_get_type(&self) -> JsValueType {
+        I32
+    }
 }
 
 impl JsValueFacade for bool {
@@ -126,5 +153,9 @@ impl JsValueFacade for bool {
 
     fn js_as_bool(&self) -> bool {
         *self
+    }
+
+    fn js_get_type(&self) -> JsValueType {
+        Boolean
     }
 }
