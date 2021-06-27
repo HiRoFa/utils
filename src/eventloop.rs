@@ -5,6 +5,7 @@ use lazy_static::lazy_static;
 use std::cell::RefCell;
 use std::future::Future;
 use std::ops::Add;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, sync_channel, SyncSender};
 use std::thread::JoinHandle;
@@ -33,7 +34,7 @@ struct Timeout {
 struct Interval {
     next_run: Instant,
     interval: Duration,
-    task: Box<dyn Fn()>,
+    task: Rc<dyn Fn()>,
 }
 
 thread_local! {
@@ -123,36 +124,45 @@ impl EventLoop {
         // this is probably not very efficient when there are lots of timeouts, could be optimized by sorting based on next_run and thus not looping over future jobs
         let now = Instant::now();
 
-        let next_deadline = TIMEOUTS.with(|rc| {
+        let (next_deadline, todos) = TIMEOUTS.with(|rc| {
             let timeouts = &mut rc.borrow_mut();
             let todos = timeouts.remove_values(|timeout| timeout.next_run.lt(&now));
-            for todo in todos {
-                let task = todo.task;
-                task();
-            }
+
             let mut ret = now.add(Duration::from_secs(10));
             for timeout in timeouts.map.values() {
                 if timeout.next_run.lt(&ret) {
                     ret = timeout.next_run;
                 }
             }
-            ret
+            (ret, todos)
         });
 
-        INTERVALS.with(|rc| {
+        for todo in todos {
+            let task = todo.task;
+            task();
+        }
+
+        let (next_deadline, todos) = INTERVALS.with(|rc| {
             let intervals = &mut *rc.borrow_mut();
             let mut ret = next_deadline;
+            let mut todos = vec![];
             for interval in intervals.map.values_mut() {
                 if interval.next_run.lt(&now) {
-                    let task = &interval.task;
-                    task();
+                    todos.push(interval.task.clone());
+                    //todo timing is less precise like this (next run is calculated before task actually ran...
                     interval.next_run = now.add(interval.interval);
                 } else if interval.next_run.lt(&ret) {
                     ret = interval.next_run;
                 }
             }
-            ret
-        })
+            (ret, todos)
+        });
+
+        for todo in todos {
+            todo();
+        }
+
+        next_deadline
     }
 
     /// internal method to ensure a member is called from the worker thread
@@ -289,7 +299,7 @@ impl EventLoop {
         let interval = Interval {
             next_run: Instant::now().add(delay),
             interval,
-            task: Box::new(task),
+            task: Rc::new(task),
         };
         INTERVALS.with(|rc| rc.borrow_mut().insert(interval) as i32)
     }
