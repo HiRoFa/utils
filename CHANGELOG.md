@@ -1,3 +1,7 @@
+# 0.1.3
+
+* fix for inaccurate timing when adding timeouts from timeouts
+
 # 0.1.2
 
 * fix for nested timeout/interval related actions inside a running timeout/interval

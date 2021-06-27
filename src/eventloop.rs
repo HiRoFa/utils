@@ -124,45 +124,55 @@ impl EventLoop {
         // this is probably not very efficient when there are lots of timeouts, could be optimized by sorting based on next_run and thus not looping over future jobs
         let now = Instant::now();
 
-        let (next_deadline, todos) = TIMEOUTS.with(|rc| {
+        let timeout_todos = TIMEOUTS.with(|rc| {
             let timeouts = &mut rc.borrow_mut();
-            let todos = timeouts.remove_values(|timeout| timeout.next_run.lt(&now));
+            timeouts.remove_values(|timeout| timeout.next_run.lt(&now))
+        });
 
+        for timeout_todo in timeout_todos {
+            let task = timeout_todo.task;
+            task();
+        }
+
+        let interval_todos = INTERVALS.with(|rc| {
+            let intervals = &mut *rc.borrow_mut();
+            let mut todos = vec![];
+            for interval in intervals.map.values_mut() {
+                if interval.next_run.lt(&now) {
+                    todos.push(interval.task.clone());
+                    interval.next_run = now.add(interval.interval);
+                }
+            }
+            todos
+        });
+
+        for interval_todo in interval_todos {
+            interval_todo();
+        }
+
+        // next deadline is always calculated afterwards because timeouts may have been added from a timeout (or interval)
+
+        let next_deadline = TIMEOUTS.with(|rc| {
+            let timeouts = &mut rc.borrow();
             let mut ret = now.add(Duration::from_secs(10));
             for timeout in timeouts.map.values() {
                 if timeout.next_run.lt(&ret) {
                     ret = timeout.next_run;
                 }
             }
-            (ret, todos)
+            ret
         });
 
-        for todo in todos {
-            let task = todo.task;
-            task();
-        }
-
-        let (next_deadline, todos) = INTERVALS.with(|rc| {
-            let intervals = &mut *rc.borrow_mut();
+        INTERVALS.with(|rc| {
+            let intervals = &*rc.borrow();
             let mut ret = next_deadline;
-            let mut todos = vec![];
-            for interval in intervals.map.values_mut() {
-                if interval.next_run.lt(&now) {
-                    todos.push(interval.task.clone());
-                    //todo timing is less precise like this (next run is calculated before task actually ran...
-                    interval.next_run = now.add(interval.interval);
-                } else if interval.next_run.lt(&ret) {
+            for interval in intervals.map.values() {
+                if interval.next_run.lt(&ret) {
                     ret = interval.next_run;
                 }
             }
-            (ret, todos)
-        });
-
-        for todo in todos {
-            todo();
-        }
-
-        next_deadline
+            ret
+        })
     }
 
     /// internal method to ensure a member is called from the worker thread
