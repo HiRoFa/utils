@@ -16,9 +16,9 @@ pub trait JsRuntimeFacade {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
     type JsContextFacadeType: JsContextFacade;
 
-    fn js_create_context(&self, name: &str) -> Self::JsContextFacadeType;
+    fn js_create_context(&self, name: &str) -> Result<(), &str>;
     fn js_get_main_context(&self) -> &Self::JsContextFacadeType;
-    fn js_get_context(&self, name: &str) -> &Self::JsContextFacadeType;
+    fn js_get_context(&self, name: &str) -> Option<&Self::JsContextFacadeType>;
     fn js_loop_sync<
         R: Send + 'static,
         C: FnOnce(&Self::JsRuntimeAdapterType) -> R + Send + 'static,

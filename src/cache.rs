@@ -113,28 +113,24 @@ impl<K: std::cmp::Eq + std::hash::Hash + Clone, O> CacheIFace<K, O> for Cache<K,
 
     fn get(&mut self, key: &K) -> Option<&O> {
         self.invalidate_stale();
-        if self.contains_key(key) {
-            self.opt(key)
-        } else {
+        if !self.contains_key(key) {
             let item_opt = (*self.producer)(key);
             if let Some(item) = item_opt {
                 self.insert(key.clone(), item);
             }
-            self.opt(key)
         }
+        self.opt(key)
     }
 
     fn get_mut(&mut self, key: &K) -> Option<&mut O> {
         self.invalidate_stale();
-        if self.contains_key(key) {
-            self.opt_mut(key)
-        } else {
+        if !self.contains_key(key) {
             let item_opt = (*self.producer)(key);
             if let Some(item) = item_opt {
                 self.insert(key.clone(), item);
             }
-            self.opt_mut(key)
         }
+        self.opt_mut(key)
     }
     fn contains_key(&self, key: &K) -> bool {
         self.entries.contains_key(key)
