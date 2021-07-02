@@ -16,7 +16,7 @@ pub trait JsRuntimeFacade {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
     type JsContextFacadeType: JsContextFacade;
 
-    fn js_create_context(&self, name: &str) -> Result<(), &str>;
+    fn js_create_context(&mut self, name: &str) -> Result<(), &str>;
     fn js_get_main_context(&self) -> &Self::JsContextFacadeType;
     fn js_get_context(&self, name: &str) -> Option<&Self::JsContextFacadeType>;
     fn js_loop_sync<
@@ -49,10 +49,10 @@ pub trait JsContextFacade {
     ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>>;
 
     // function methods
-    fn js_function_invoke(
+    fn js_function_invoke_sync(
         &self,
-        namespace: &[&'static str],
-        method_name: &'static str,
+        namespace: &[&str],
+        method_name: &str,
         args: Vec<Box<dyn JsValueFacade>>,
     ) -> Result<Box<dyn JsValueFacade>, JsError>;
 
