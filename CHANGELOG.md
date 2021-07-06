@@ -1,3 +1,9 @@
+# 0.2.0
+
+* working on facades and adapters for JsEngines
+  * renamed Context to Realm
+  * replaced ContextFacade with methods in RuntimeFacade
+
 # 0.1.3
 
 * fix for inaccurate timing when adding timeouts from timeouts
