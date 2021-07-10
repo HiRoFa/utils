@@ -150,7 +150,7 @@ pub trait JsRealmAdapter {
         JsError,
     >;
     // function methods
-    fn js_function_invoke(
+    fn js_function_invoke_by_name(
         &self,
         namespace: &[&str],
         method_name: &str,
@@ -159,7 +159,7 @@ pub trait JsRealmAdapter {
         <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         JsError,
     >;
-    fn js_function_invoke2(
+    fn js_function_invoke_member_by_name(
         &self,
         this_obj: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         method_name: &str,
@@ -168,7 +168,7 @@ pub trait JsRealmAdapter {
         <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         JsError,
     >;
-    fn js_function_invoke3(
+    fn js_function_invoke(
         &self,
         this_obj: Option<&<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType>,
         function_obj: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
