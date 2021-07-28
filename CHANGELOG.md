@@ -1,6 +1,7 @@
-# 0.2.1 (wip)
+# 0.2.1
 
 * removed default impl for js_loop_realm* 
+* fixed typedef for to_js_value_facade()
 
 # 0.2.0
 

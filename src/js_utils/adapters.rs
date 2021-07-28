@@ -19,7 +19,7 @@ pub trait JsRealmAdapter {
 
     fn to_js_value_facade(
         &self,
-        js_value: &dyn JsValueAdapter<JsRuntimeAdapterType = Self::JsRuntimeAdapterType>,
+        js_value: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
     ) -> Box<dyn JsValueFacade> {
         match js_value.js_get_type() {
             JsValueType::I32 => Box::new(js_value.js_to_i32()),
