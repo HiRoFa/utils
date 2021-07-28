@@ -1,3 +1,7 @@
+# 0.2.1 (wip)
+
+* removed default impl for js_loop_realm* 
+
 # 0.2.0
 
 * working on facades and adapters for JsEngines

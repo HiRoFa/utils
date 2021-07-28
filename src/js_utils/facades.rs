@@ -44,17 +44,7 @@ pub trait JsRuntimeFacade {
         &self,
         realm_name: Option<&str>,
         consumer: C,
-    ) -> R{
-        let realm_name = realm_name.map(|s| s.to_string());
-        self.js_loop_sync(|rt| {
-            let realm = if let Some(realm_name) = realm_name {
-                rt.js_get_realm(realm_name.as_str()).expect("no such realm")
-            } else {
-                rt.js_get_main_realm()
-            };
-            consumer(rt, realm)
-        })
-    }
+    ) -> R;
 
     fn js_loop_realm<
         R: Send + 'static,
@@ -66,17 +56,7 @@ pub trait JsRuntimeFacade {
         &self,
         realm_name: Option<&str>,
         consumer: C,
-    ) -> Pin<Box<dyn Future<Output = R>>>{
-        let realm_name = realm_name.map(|s| s.to_string());
-        self.js_loop(|rt| {
-            let realm = if let Some(realm_name) = realm_name {
-                rt.js_get_realm(realm_name.as_str()).expect("no such realm")
-            } else {
-                rt.js_get_main_realm()
-            };
-            consumer(rt, realm)
-        })
-    }
+    ) -> Pin<Box<dyn Future<Output = R>>>;
 
     fn js_loop_realm_void<
         C: FnOnce(
@@ -88,17 +68,7 @@ pub trait JsRuntimeFacade {
         &self,
         realm_name: Option<&str>,
         consumer: C,
-    ){
-        let realm_name = realm_name.map(|s| s.to_string());
-        self.js_loop_void(|rt| {
-            let realm = if let Some(realm_name) = realm_name {
-                rt.js_get_realm(realm_name.as_str()).expect("no such realm")
-            } else {
-                rt.js_get_main_realm()
-            };
-            consumer(rt, realm)
-        })
-    }
+    );
 
     /// eval a script, please note that eval should not be used for production code, you should always
     /// use modules or functions and invoke them
