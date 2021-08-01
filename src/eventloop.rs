@@ -289,8 +289,12 @@ impl EventLoop {
 
     /// add a task to the pool
     pub fn add_void<T: FnOnce() + Send + 'static>(&self, task: T) {
-        let tx = self.tx.clone();
-        tx.send(Box::new(task)).expect("send failed");
+        if self.is_my_pool_thread() {
+            Self::add_local_void(task)
+        } else {
+            let tx = self.tx.clone();
+            tx.send(Box::new(task)).expect("send failed");
+        }
     }
 
     /// add a timeout (delayed task) to the EventLoop

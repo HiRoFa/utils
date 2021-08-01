@@ -1,3 +1,7 @@
+# 0.2.2 (WiP) 
+
+* small optimization to add_void in EventLoop
+
 # 0.2.1
 
 * removed default impl for js_loop_realm* 
