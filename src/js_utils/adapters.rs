@@ -12,6 +12,9 @@ pub trait JsRuntimeAdapter {
     fn js_create_realm(&self, id: &str) -> Result<&Self::JsRealmAdapterType, JsError>;
     fn js_get_realm(&self, id: &str) -> Option<&Self::JsRealmAdapterType>;
     fn js_get_main_realm(&self) -> &Self::JsRealmAdapterType;
+    fn js_add_realm_init_hook<H>(&self, hook: H) -> Result<(), JsError>
+    where
+        H: Fn(&Self, &Self::JsRealmAdapterType) -> Result<(), JsError> + 'static;
 }
 
 pub trait JsRealmAdapter {
@@ -20,11 +23,11 @@ pub trait JsRealmAdapter {
     fn to_js_value_facade(
         &self,
         js_value: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-    ) -> Box<dyn JsValueFacade> {
-        match js_value.js_get_type() {
+    ) -> Result<Box<dyn JsValueFacade>, JsError> {
+        let res: Box<dyn JsValueFacade> = match js_value.js_get_type() {
             JsValueType::I32 => Box::new(js_value.js_to_i32()),
             JsValueType::F64 => Box::new(js_value.js_to_f64()),
-            JsValueType::String => Box::new(js_value.js_to_string()),
+            JsValueType::String => Box::new(js_value.js_to_string()?),
             JsValueType::Boolean => Box::new(js_value.js_to_bool()),
             JsValueType::Object => {
                 todo!();
@@ -47,7 +50,8 @@ pub trait JsRealmAdapter {
             JsValueType::Array => {
                 todo!();
             }
-        }
+        };
+        Ok(res)
     }
 
     fn from_js_value_facade(
@@ -336,6 +340,20 @@ pub trait JsRealmAdapter {
         object: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
         constructor: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
     ) -> bool;
+
+    // json
+    fn js_json_stringify(
+        &self,
+        object: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        opt_space: Option<&str>,
+    ) -> Result<String, JsError>;
+    fn js_json_parse(
+        &self,
+        json_string: &str,
+    ) -> Result<
+        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        JsError,
+    >;
 }
 
 pub trait JsPromiseAdapter {
@@ -372,10 +390,10 @@ pub trait JsValueAdapter {
         self.js_get_type() == JsValueType::Null || self.js_get_type() == JsValueType::Undefined
     }
 
-    /// js_type_of returns the Javascript typeof String
+    /// js_type_of returns the Javascript typeof string
     fn js_type_of(&self) -> &'static str;
     fn js_to_bool(&self) -> bool;
     fn js_to_i32(&self) -> i32;
     fn js_to_f64(&self) -> f64;
-    fn js_to_string(&self) -> String;
+    fn js_to_string(&self) -> Result<String, JsError>;
 }

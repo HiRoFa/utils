@@ -2,8 +2,31 @@ use crate::js_utils::adapters::JsRuntimeAdapter;
 use crate::js_utils::{JsError, Script};
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Weak;
 
 pub struct JsProxy {}
+
+pub trait JsRuntimeFacadeInner {
+    type JsRuntimeFacadeType: JsRuntimeFacade;
+    fn js_exe_rt_task_in_event_loop<
+        R: Send + 'static,
+        J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) -> R + Send + 'static,
+    >(
+        &self,
+        task: J,
+    ) -> R;
+    fn js_add_rt_task_to_event_loop<
+        R: Send + 'static,
+        J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) -> R + Send + 'static,
+    >(
+        &self,
+        task: J,
+    ) -> Pin<Box<dyn Future<Output = R>>>;
+    fn js_add_rt_task_to_event_loop_void<J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) + Send + 'static>(
+        &self,
+        task: J,
+    );
+}
 
 pub trait JsRuntimeBuilder {
     type JsRuntimeFacadeType: JsRuntimeFacade;
@@ -13,6 +36,9 @@ pub trait JsRuntimeBuilder {
 /// handles the logic for transferring data from and to the JsRuntimeAdapter
 pub trait JsRuntimeFacade {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
+    type JsRuntimeFacadeInnerType: JsRuntimeFacadeInner;
+
+    fn js_get_runtime_facade_inner(&self) -> Weak<Self::JsRuntimeFacadeInnerType>;
 
     fn js_realm_create(&mut self, name: &str) -> Result<(), JsError>;
     fn js_realm_destroy(&mut self, name: &str) -> Result<(), JsError>;
