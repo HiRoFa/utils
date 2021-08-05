@@ -30,7 +30,13 @@ pub trait JsRuntimeFacadeInner {
 
 pub trait JsRuntimeBuilder {
     type JsRuntimeFacadeType: JsRuntimeFacade;
-    fn build(self) -> Self::JsRuntimeFacadeType;
+    fn js_build(self) -> Self::JsRuntimeFacadeType;
+    fn js_runtime_init_hook<
+        H: FnOnce(&Self::JsRuntimeFacadeType) -> Result<(), JsError> + Send + 'static,
+    >(
+        &mut self,
+        hook: H,
+    ) -> &mut Self;
 }
 /// The JsRuntime facade is the main entry point to the JavaScript engine, it is thread safe and
 /// handles the logic for transferring data from and to the JsRuntimeAdapter
