@@ -3,6 +3,7 @@
 * small optimization to add_void in EventLoop
 * added js_get_script_or_module_name to JsRealmAdapter
 * removed fetch api (moved to GreCo)
+* added script_preproc to builder
 
 # 0.2.1
 

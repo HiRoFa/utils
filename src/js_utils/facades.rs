@@ -1,5 +1,5 @@
 use crate::js_utils::adapters::JsRuntimeAdapter;
-use crate::js_utils::{JsError, Script};
+use crate::js_utils::{JsError, Script, ScriptPreProcessor};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Weak;
@@ -37,6 +37,8 @@ pub trait JsRuntimeBuilder {
         &mut self,
         hook: H,
     ) -> &mut Self;
+    fn js_script_pre_processor(&mut self, preprocessor: dyn ScriptPreProcessor + Send)
+        -> &mut Self;
 }
 /// The JsRuntime facade is the main entry point to the JavaScript engine, it is thread safe and
 /// handles the logic for transferring data from and to the JsRuntimeAdapter
