@@ -4,6 +4,7 @@
 * added js_get_script_or_module_name to JsRealmAdapter
 * removed fetch api (moved to GreCo)
 * added script_preproc to builder
+* added js_load_module_script to realm
 
 # 0.2.1
 

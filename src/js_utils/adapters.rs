@@ -21,6 +21,7 @@ pub trait JsRealmAdapter {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
 
     fn js_get_script_or_module_name(&self) -> Result<String, JsError>;
+    fn js_load_module_script(&self, ref_path: &str, path: &str) -> Option<Script>;
 
     fn to_js_value_facade(
         &self,
