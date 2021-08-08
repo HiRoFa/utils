@@ -1,4 +1,4 @@
-use crate::js_utils::adapters::proxies::{JsProxy, JsProxyHandle};
+use crate::js_utils::adapters::proxies::{JsProxy, JsProxyInstanceId};
 use crate::js_utils::facades::{JsNull, JsUndefined, JsValueFacade, JsValueType};
 use crate::js_utils::{JsError, Script};
 
@@ -113,7 +113,7 @@ pub trait JsRealmAdapter {
     >;
     fn js_proxy_invoke_event(
         &self,
-        proxy_handle: &JsProxyHandle,
+        proxy_handle: &JsProxyInstanceId,
         event_id: &str,
         event_obj: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
     );
