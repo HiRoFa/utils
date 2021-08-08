@@ -9,6 +9,8 @@ pub trait JsRuntimeAdapter {
     type JsPromiseAdapterType: JsPromiseAdapter + Clone;
     type JsRealmAdapterType: JsRealmAdapter;
 
+    fn js_load_module_script(&self, ref_path: &str, path: &str) -> Option<Script>;
+
     fn js_create_realm(&self, id: &str) -> Result<&Self::JsRealmAdapterType, JsError>;
     fn js_get_realm(&self, id: &str) -> Option<&Self::JsRealmAdapterType>;
     fn js_get_main_realm(&self) -> &Self::JsRealmAdapterType;
@@ -21,7 +23,6 @@ pub trait JsRealmAdapter {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
 
     fn js_get_script_or_module_name(&self) -> Result<String, JsError>;
-    fn js_load_module_script(&self, ref_path: &str, path: &str) -> Option<Script>;
 
     fn to_js_value_facade(
         &self,
