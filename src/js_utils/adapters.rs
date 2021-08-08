@@ -124,6 +124,7 @@ pub trait JsRealmAdapter {
         namespace: &[&str],
         name: &str,
         js_function: fn(
+            &Self::JsRuntimeAdapterType,
             &Self,
             &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
             &[<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
@@ -132,6 +133,7 @@ pub trait JsRealmAdapter {
     ) -> Result<(), JsError>;
     fn js_install_closure<
         F: Fn(
+            &Self::JsRuntimeAdapterType,
             &Self,
             &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
             &[<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
