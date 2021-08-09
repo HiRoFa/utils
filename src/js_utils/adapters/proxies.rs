@@ -1,51 +1,50 @@
-use crate::js_utils::adapters::{JsRuntimeAdapter, JsValueAdapter};
+use crate::js_utils::adapters::{JsRealmAdapter, JsValueAdapter};
+use crate::js_utils::facades::JsValueType;
 use crate::js_utils::JsError;
 use std::collections::HashMap;
 
 pub type JsProxyConstructor<R> = dyn Fn(
+    &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,
-    &<R as JsRuntimeAdapter>::JsRealmAdapterType,
     &JsProxyInstanceId,
-    &[&<R as JsRuntimeAdapter>::JsValueAdapterType],
+    &[&<R as JsRealmAdapter>::JsValueAdapterType],
 ) -> Result<(), JsError>;
 pub type JsMethod<R> = dyn Fn(
+    &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,
-    &<R as JsRuntimeAdapter>::JsRealmAdapterType,
     &JsProxyInstanceId,
-    &[&<R as JsRuntimeAdapter>::JsValueAdapterType],
-) -> Result<Box<<R as JsRuntimeAdapter>::JsValueAdapterType>, JsError>;
+    &[&<R as JsRealmAdapter>::JsValueAdapterType],
+) -> Result<Box<<R as JsRealmAdapter>::JsValueAdapterType>, JsError>;
 pub type JsStaticMethod<R> =
     dyn Fn(
+        &<R as JsRealmAdapter>::JsRuntimeAdapterType,
         &R,
-        &<R as JsRuntimeAdapter>::JsRealmAdapterType,
-        &[&<R as JsRuntimeAdapter>::JsValueAdapterType],
-    ) -> Result<Box<<R as JsRuntimeAdapter>::JsValueAdapterType>, JsError>;
+        &[&<R as JsRealmAdapter>::JsValueAdapterType],
+    ) -> Result<Box<<R as JsRealmAdapter>::JsValueAdapterType>, JsError>;
 
-pub type JsFinalizer<R> =
-    dyn Fn(&R, &<R as JsRuntimeAdapter>::JsRealmAdapterType, &JsProxyInstanceId);
+pub type JsFinalizer<R> = dyn Fn(&R, &JsProxyInstanceId);
 pub type JsGetter<R> = dyn Fn(
+    &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,
-    &<R as JsRuntimeAdapter>::JsRealmAdapterType,
     &JsProxyInstanceId,
-) -> Result<<R as JsRuntimeAdapter>::JsValueAdapterType, JsError>;
+) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>;
 pub type JsSetter<R> = dyn Fn(
+    &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,
-    &<R as JsRuntimeAdapter>::JsRealmAdapterType,
     &JsProxyInstanceId,
-    &<R as JsRuntimeAdapter>::JsValueAdapterType,
+    &<R as JsRealmAdapter>::JsValueAdapterType,
 ) -> Result<(), JsError>;
 pub type JsStaticGetter<R> = dyn Fn(
+    &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,
-    &<R as JsRuntimeAdapter>::JsRealmAdapterType,
-)
-    -> Result<<R as JsRuntimeAdapter>::JsValueAdapterType, JsError>;
+) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>;
 pub type JsStaticSetter<R> = dyn Fn(
+    &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,
-    &<R as JsRuntimeAdapter>::JsRealmAdapterType,
-    &<R as JsRuntimeAdapter>::JsValueAdapterType,
+    &<R as JsRealmAdapter>::JsValueAdapterType,
 ) -> Result<(), JsError>;
 
-pub enum JsProxyMember<R: JsRuntimeAdapter> {
+pub enum JsProxyMember<R: JsRealmAdapter> {
     Method {
         method: Box<JsMethod<R>>,
     },
@@ -54,7 +53,7 @@ pub enum JsProxyMember<R: JsRuntimeAdapter> {
         set: Box<JsSetter<R>>,
     },
 }
-pub enum JsProxyStaticMember<R: JsRuntimeAdapter> {
+pub enum JsProxyStaticMember<R: JsRealmAdapter> {
     StaticMethod {
         method: Box<JsStaticMethod<R>>,
     },
@@ -64,22 +63,22 @@ pub enum JsProxyStaticMember<R: JsRuntimeAdapter> {
     },
 }
 
-pub struct JsProxy<R: JsRuntimeAdapter> {
+pub struct JsProxy<R: JsRealmAdapter> {
     pub name: &'static str,
     pub namespace: &'static [&'static str],
     constructor: Option<Box<JsProxyConstructor<R>>>,
     members: HashMap<&'static str, JsProxyMember<R>>,
     static_members: HashMap<&'static str, JsProxyStaticMember<R>>, // enum
-    _event_handlers: HashMap<&'static str, Vec<Box<dyn JsValueAdapter<JsRuntimeAdapterType = R>>>>,
+    event_handlers: HashMap<String, Vec<Box<R::JsValueAdapterType>>>,
     finalizer: Option<Box<JsFinalizer<R>>>,
 }
 
-impl<R: JsRuntimeAdapter> JsProxy<R> {
+impl<R: JsRealmAdapter> JsProxy<R> {
     pub fn set_constructor<C>(&mut self, constructor: C)
     where
         C: Fn(
+                &R::JsRuntimeAdapterType,
                 &R,
-                &R::JsRealmAdapterType,
                 &JsProxyInstanceId,
                 &[&R::JsValueAdapterType],
             ) -> Result<(), JsError>
@@ -90,7 +89,7 @@ impl<R: JsRuntimeAdapter> JsProxy<R> {
     }
     pub fn set_finalizer<F>(&mut self, finalizer: F)
     where
-        F: Fn(&R, &R::JsRealmAdapterType, &JsProxyInstanceId) + 'static,
+        F: Fn(&R, &JsProxyInstanceId) + 'static,
     {
         assert!(self.finalizer.is_none());
         self.finalizer.replace(Box::new(finalizer));
@@ -98,11 +97,11 @@ impl<R: JsRuntimeAdapter> JsProxy<R> {
     pub fn add_method<M>(&mut self, name: &'static str, method: M)
     where
         M: Fn(
+                &R::JsRuntimeAdapterType,
                 &R,
-                &R::JsRealmAdapterType,
                 &JsProxyInstanceId,
                 &[&R::JsValueAdapterType],
-            ) -> Result<Box<<R as JsRuntimeAdapter>::JsValueAdapterType>, JsError>
+            ) -> Result<Box<<R as JsRealmAdapter>::JsValueAdapterType>, JsError>
             + 'static,
     {
         assert!(!self.members.contains_key(name));
@@ -116,10 +115,10 @@ impl<R: JsRuntimeAdapter> JsProxy<R> {
     pub fn add_getter<G, S>(&mut self, name: &'static str, getter: G)
     where
         G: Fn(
+                &R::JsRuntimeAdapterType,
                 &R,
-                &<R as JsRuntimeAdapter>::JsRealmAdapterType,
                 &JsProxyInstanceId,
-            ) -> Result<<R as JsRuntimeAdapter>::JsValueAdapterType, JsError>
+            ) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>
             + 'static,
     {
         self.add_getter_setter(name, getter, |_rt, _realm, _id, _val| {
@@ -129,16 +128,16 @@ impl<R: JsRuntimeAdapter> JsProxy<R> {
     pub fn add_getter_setter<G, S>(&mut self, name: &'static str, getter: G, setter: S)
     where
         G: Fn(
+                &R::JsRuntimeAdapterType,
                 &R,
-                &<R as JsRuntimeAdapter>::JsRealmAdapterType,
                 &JsProxyInstanceId,
-            ) -> Result<<R as JsRuntimeAdapter>::JsValueAdapterType, JsError>
+            ) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>
             + 'static,
         S: Fn(
+                &R::JsRuntimeAdapterType,
                 &R,
-                &<R as JsRuntimeAdapter>::JsRealmAdapterType,
                 &JsProxyInstanceId,
-                &<R as JsRuntimeAdapter>::JsValueAdapterType,
+                &<R as JsRealmAdapter>::JsValueAdapterType,
             ) -> Result<(), JsError>
             + 'static,
     {
@@ -154,10 +153,10 @@ impl<R: JsRuntimeAdapter> JsProxy<R> {
     pub fn add_static_method<M>(&mut self, name: &'static str, method: M)
     where
         M: Fn(
+                &R::JsRuntimeAdapterType,
                 &R,
-                &R::JsRealmAdapterType,
                 &[&R::JsValueAdapterType],
-            ) -> Result<Box<<R as JsRuntimeAdapter>::JsValueAdapterType>, JsError>
+            ) -> Result<Box<<R as JsRealmAdapter>::JsValueAdapterType>, JsError>
             + 'static,
     {
         assert!(!self.static_members.contains_key(name));
@@ -171,9 +170,9 @@ impl<R: JsRuntimeAdapter> JsProxy<R> {
     pub fn add_static_getter<G, S>(&mut self, name: &'static str, getter: G)
     where
         G: Fn(
+                &R::JsRuntimeAdapterType,
                 &R,
-                &<R as JsRuntimeAdapter>::JsRealmAdapterType,
-            ) -> Result<<R as JsRuntimeAdapter>::JsValueAdapterType, JsError>
+            ) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>
             + 'static,
     {
         self.add_static_getter_setter(name, getter, |_rt, _realm, _val| {
@@ -183,14 +182,14 @@ impl<R: JsRuntimeAdapter> JsProxy<R> {
     pub fn add_static_getter_setter<G, S>(&mut self, name: &'static str, getter: G, setter: S)
     where
         G: Fn(
+                &R::JsRuntimeAdapterType,
                 &R,
-                &<R as JsRuntimeAdapter>::JsRealmAdapterType,
-            ) -> Result<<R as JsRuntimeAdapter>::JsValueAdapterType, JsError>
+            ) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>
             + 'static,
         S: Fn(
+                &R::JsRuntimeAdapterType,
                 &R,
-                &<R as JsRuntimeAdapter>::JsRealmAdapterType,
-                &<R as JsRuntimeAdapter>::JsValueAdapterType,
+                &<R as JsRealmAdapter>::JsValueAdapterType,
             ) -> Result<(), JsError>
             + 'static,
     {
@@ -202,6 +201,51 @@ impl<R: JsRuntimeAdapter> JsProxy<R> {
                 set: Box::new(setter),
             },
         );
+    }
+    pub fn add_event_handler(&mut self, event_id: &str, handler: R::JsValueAdapterType) {
+        //
+        assert!(handler.js_get_type() == JsValueType::Function);
+        let mut vec_opt = self.event_handlers.get_mut(event_id);
+        if vec_opt.is_none() {
+            self.event_handlers.insert(event_id.to_string(), vec![]);
+            vec_opt = self.event_handlers.get_mut(event_id);
+            debug_assert!(vec_opt.is_some());
+        }
+
+        let vec = vec_opt.unwrap();
+
+        vec.push(Box::new(handler));
+    }
+    pub fn remove_event_handler(&mut self, event_id: &str, handler: R::JsValueAdapterType) {
+        //
+        assert!(handler.js_get_type() == JsValueType::Function);
+        let mut vec_opt = self.event_handlers.get_mut(event_id);
+        if vec_opt.is_none() {
+            self.event_handlers.insert(event_id.to_string(), vec![]);
+            vec_opt = self.event_handlers.get_mut(event_id);
+            debug_assert!(vec_opt.is_some());
+        }
+
+        let vec = vec_opt.unwrap();
+        if let Some(index) = vec.iter().position(|r| r.as_ref() == &handler) {
+            vec.remove(index);
+        }
+    }
+    pub fn invoke_event(
+        &self,
+        realm: &R,
+        event_id: &str,
+        args: &[R::JsValueAdapterType],
+    ) -> Result<(), JsError> {
+        //
+        if let Some(vec) = self.event_handlers.get(event_id) {
+            for handler in vec {
+                //
+                let h = handler.as_ref();
+                realm.js_function_invoke(None, h, args)?;
+            }
+        }
+        Ok(())
     }
 }
 

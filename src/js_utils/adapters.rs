@@ -5,8 +5,6 @@ use crate::js_utils::{JsError, Script};
 pub mod proxies;
 
 pub trait JsRuntimeAdapter {
-    type JsValueAdapterType: JsValueAdapter + Clone;
-    type JsPromiseAdapterType: JsPromiseAdapter + Clone;
     type JsRealmAdapterType: JsRealmAdapter;
 
     fn js_load_module_script(&self, ref_path: &str, path: &str) -> Option<Script>;
@@ -21,12 +19,14 @@ pub trait JsRuntimeAdapter {
 
 pub trait JsRealmAdapter {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
+    type JsValueAdapterType: JsValueAdapter + Clone + PartialEq;
+    type JsPromiseAdapterType: JsPromiseAdapter + Clone;
 
     fn js_get_script_or_module_name(&self) -> Result<String, JsError>;
 
     fn to_js_value_facade(
         &self,
-        js_value: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        js_value: &Self::JsValueAdapterType,
     ) -> Result<Box<dyn JsValueFacade>, JsError> {
         let res: Box<dyn JsValueFacade> = match js_value.js_get_type() {
             JsValueType::I32 => Box::new(js_value.js_to_i32()),
@@ -61,10 +61,7 @@ pub trait JsRealmAdapter {
     fn from_js_value_facade(
         &self,
         value_facade: &dyn JsValueFacade,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    > {
+    ) -> Result<Self::JsValueAdapterType, JsError> {
         match value_facade.js_get_type() {
             JsValueType::I32 => self.js_i32_create(value_facade.js_as_i32()),
             JsValueType::F64 => self.js_f64_create(value_facade.js_as_f64()),
@@ -93,29 +90,22 @@ pub trait JsRealmAdapter {
         }
     }
 
-    fn js_eval(
-        &self,
-        script: Script,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
+    fn js_eval(&self, script: Script) -> Result<Self::JsValueAdapterType, JsError>;
 
-    fn js_proxy_install(&self, proxy: JsProxy<Self::JsRuntimeAdapterType>);
+    fn js_proxy_install(&self, proxy: JsProxy<Self>)
+    where
+        Self: Sized;
     fn js_proxy_instantiate(
         &self,
         namespace: &[&str],
         class_name: &str,
-        arguments: &[<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
+        arguments: &[Self::JsValueAdapterType],
+    ) -> Result<Self::JsValueAdapterType, JsError>;
     fn js_proxy_invoke_event(
         &self,
         proxy_handle: &JsProxyInstanceId,
         event_id: &str,
-        event_obj: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        event_obj: &Self::JsValueAdapterType,
     );
 
     #[allow(clippy::type_complexity)]
@@ -126,18 +116,19 @@ pub trait JsRealmAdapter {
         js_function: fn(
             &Self::JsRuntimeAdapterType,
             &Self,
-            &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-            &[<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
-        ) -> Result<<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType, JsError>,
+            &Self::JsValueAdapterType,
+            &[Self::JsValueAdapterType],
+        ) -> Result<Self::JsValueAdapterType, JsError>,
         arg_count: u32,
     ) -> Result<(), JsError>;
     fn js_install_closure<
         F: Fn(
-            &Self::JsRuntimeAdapterType,
-            &Self,
-            &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-            &[<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
-        ) -> Result<<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType, JsError> + 'static,
+                &Self::JsRuntimeAdapterType,
+                &Self,
+                &Self::JsValueAdapterType,
+                &[Self::JsValueAdapterType],
+            ) -> Result<Self::JsValueAdapterType, JsError>
+            + 'static,
     >(
         &self,
         namespace: &[&str],
@@ -145,245 +136,156 @@ pub trait JsRealmAdapter {
         js_function: F,
         arg_count: u32,
     ) -> Result<(), JsError>;
-    fn js_eval_module(
-        &self,
-        script: Script,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
-    fn js_get_namespace(
-        &self,
-        namespace: &[&str],
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
+    fn js_eval_module(&self, script: Script) -> Result<Self::JsValueAdapterType, JsError>;
+    fn js_get_namespace(&self, namespace: &[&str]) -> Result<Self::JsValueAdapterType, JsError>;
     // function methods
     fn js_function_invoke_by_name(
         &self,
         namespace: &[&str],
         method_name: &str,
-        args: &[<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
+        args: &[Self::JsValueAdapterType],
+    ) -> Result<Self::JsValueAdapterType, JsError>;
     fn js_function_invoke_member_by_name(
         &self,
-        this_obj: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        this_obj: &Self::JsValueAdapterType,
         method_name: &str,
-        args: &[<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
+        args: &[Self::JsValueAdapterType],
+    ) -> Result<Self::JsValueAdapterType, JsError>;
     fn js_function_invoke(
         &self,
-        this_obj: Option<&<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType>,
-        function_obj: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        args: &[<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
+        this_obj: Option<&Self::JsValueAdapterType>,
+        function_obj: &Self::JsValueAdapterType,
+        args: &[Self::JsValueAdapterType],
+    ) -> Result<Self::JsValueAdapterType, JsError>;
     fn js_function_create<
         F: Fn(
-            &Self,
-            &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-            &[<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
-        ) -> Result<<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType, JsError> + 'static,
+                &Self,
+                &Self::JsValueAdapterType,
+                &[Self::JsValueAdapterType],
+            ) -> Result<Self::JsValueAdapterType, JsError>
+            + 'static,
     >(
         &self,
         name: &str,
         js_function: F,
         arg_count: u32,
-    ) -> Result<<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType, JsError>;
+    ) -> Result<Self::JsValueAdapterType, JsError>;
     //object functions
     fn js_object_delete_property(
         &self,
-        object: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        object: &Self::JsValueAdapterType,
         property_name: &str,
     ) -> Result<(), JsError>;
     fn js_object_set_property(
         &self,
-        object: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        object: &Self::JsValueAdapterType,
         property_name: &str,
-        property: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        property: &Self::JsValueAdapterType,
     ) -> Result<(), JsError>;
 
     fn js_object_get_property(
         &self,
-        object: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        object: &Self::JsValueAdapterType,
         property_name: &str,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
-    fn js_object_create(
-        &self,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
+    ) -> Result<Self::JsValueAdapterType, JsError>;
+    fn js_object_create(&self) -> Result<Self::JsValueAdapterType, JsError>;
     fn js_object_construct(
         &self,
-        constructor: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        args: &[<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType],
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
+        constructor: &Self::JsValueAdapterType,
+        args: &[Self::JsValueAdapterType],
+    ) -> Result<Self::JsValueAdapterType, JsError>;
     fn js_object_get_properties(
         &self,
-        object: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        object: &Self::JsValueAdapterType,
     ) -> Result<Vec<String>, JsError>;
     fn js_object_traverse<F, R>(
         &self,
-        object: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        visitor: F
-    ) -> Result<Vec<R>, JsError> where F: Fn(&str, &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType) -> Result<R, JsError>;
+        object: &Self::JsValueAdapterType,
+        visitor: F,
+    ) -> Result<Vec<R>, JsError>
+    where
+        F: Fn(&str, &Self::JsValueAdapterType) -> Result<R, JsError>;
     // array functions
     fn js_array_get_element(
         &self,
-        array: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        array: &Self::JsValueAdapterType,
         index: u32,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
+    ) -> Result<Self::JsValueAdapterType, JsError>;
     fn js_array_set_element(
         &self,
-        array: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        array: &Self::JsValueAdapterType,
         index: u32,
-        element: <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        element: Self::JsValueAdapterType,
     ) -> Result<(), JsError>;
-    fn js_array_get_length(
-        &self,
-        array: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-    ) -> Result<u32, JsError>;
-    fn js_array_create(
-        &self,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
+    fn js_array_get_length(&self, array: &Self::JsValueAdapterType) -> Result<u32, JsError>;
+    fn js_array_create(&self) -> Result<Self::JsValueAdapterType, JsError>;
     fn js_array_traverse<F, R>(
         &self,
-        array: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        visitor: F
-    ) -> Result<Vec<R>, JsError> where F: Fn(u32, &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType) -> Result<R, JsError>;
+        array: &Self::JsValueAdapterType,
+        visitor: F,
+    ) -> Result<Vec<R>, JsError>
+    where
+        F: Fn(u32, &Self::JsValueAdapterType) -> Result<R, JsError>;
     // primitives
 
-    fn js_null_create(
-        &self,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
-    fn js_undefined_create(
-        &self,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
-    fn js_i32_create(
-        &self,
-        val: i32,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
-    fn js_string_create(
-        &self,
-        val: &str,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
-    fn js_boolean_create(
-        &self,
-        val: bool,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
-    fn js_f64_create(
-        &self,
-        val: f64,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
+    fn js_null_create(&self) -> Result<Self::JsValueAdapterType, JsError>;
+    fn js_undefined_create(&self) -> Result<Self::JsValueAdapterType, JsError>;
+    fn js_i32_create(&self, val: i32) -> Result<Self::JsValueAdapterType, JsError>;
+    fn js_string_create(&self, val: &str) -> Result<Self::JsValueAdapterType, JsError>;
+    fn js_boolean_create(&self, val: bool) -> Result<Self::JsValueAdapterType, JsError>;
+    fn js_f64_create(&self, val: f64) -> Result<Self::JsValueAdapterType, JsError>;
 
     // promises
-    fn js_promise_create(
-        &self,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsPromiseAdapterType,
-        JsError,
-    >;
+    fn js_promise_create(&self) -> Result<Box<Self::JsPromiseAdapterType>, JsError>;
 
     // cache
-    fn js_cache_add(
-        &self,
-        object: <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-    ) -> i32;
+    fn js_cache_add(&self, object: Self::JsValueAdapterType) -> i32;
     fn js_cache_dispose(&self, id: i32);
-    fn js_cache_with<C, R>(
-        &self,
-        id: i32,
-        consumer: C
-    ) -> R where C: FnOnce(&<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType) -> R;
-    fn js_cache_consume(
-        &self,
-        id: i32,
-    ) -> <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType;
+    fn js_cache_with<C, R>(&self, id: i32, consumer: C) -> R
+    where
+        C: FnOnce(&Self::JsValueAdapterType) -> R;
+    fn js_cache_consume(&self, id: i32) -> Self::JsValueAdapterType;
 
     // instanceof
     fn js_instance_of(
         &self,
-        object: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        constructor: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        object: &Self::JsValueAdapterType,
+        constructor: &Self::JsValueAdapterType,
     ) -> bool;
 
     // json
     fn js_json_stringify(
         &self,
-        object: &<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        object: &Self::JsValueAdapterType,
         opt_space: Option<&str>,
     ) -> Result<String, JsError>;
-    fn js_json_parse(
-        &self,
-        json_string: &str,
-    ) -> Result<
-        <<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
-        JsError,
-    >;
+    fn js_json_parse(&self, json_string: &str) -> Result<Self::JsValueAdapterType, JsError>;
 }
 
 pub trait JsPromiseAdapter {
-    type JsRuntimeAdapterType: JsRuntimeAdapter;
+    type JsRealmAdapterType: JsRealmAdapter;
     fn js_promise_resolve(
         &self,
-        context: &<<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType,
-        resolution: &<<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        realm: &Self::JsRealmAdapterType,
+        resolution: &<<Self as JsPromiseAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType,
     ) -> Result<(), JsError>;
     fn js_promise_reject(
         &self,
-        context: &<<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType,
-        rejection: &<<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType,
+        realm: &Self::JsRealmAdapterType,
+        rejection: &<<Self as JsPromiseAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType,
     ) -> Result<(), JsError>;
     fn js_promise_add_reactions<F>(
         &self,
-        context: &<<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType,
+        realm: &Self::JsRealmAdapterType,
         then: Option<F>,
         catch: Option<F>,
         finally: Option<F>,
-    ) -> Result<(), JsError> where F: Fn(&<<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType) -> Result<(), JsError> + 'static;
+    ) -> Result<(), JsError>
+    where
+        F: Fn(&<<Self as JsPromiseAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType) -> Result<(), JsError> + 'static;
     fn js_promise_get_value(
         &self,
-    ) -> <<Self as JsPromiseAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsValueAdapterType;
+    ) -> <<Self as JsPromiseAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType;
 }
 
 pub trait JsValueAdapter {
