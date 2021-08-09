@@ -61,7 +61,7 @@ impl<T> AutoIdMap<T> {
         let mut rem_keys = vec![];
         {
             for i in self.map.iter() {
-                if f(&i.1) {
+                if f(i.1) {
                     rem_keys.push(*i.0);
                 }
             }
