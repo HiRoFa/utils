@@ -54,7 +54,7 @@ pub enum JsProxyMember<R: JsRuntimeAdapter> {
         set: Box<JsSetter<R>>,
     },
 }
-pub enum JsStaticProxyMember<R: JsRuntimeAdapter> {
+pub enum JsProxyStaticMember<R: JsRuntimeAdapter> {
     StaticMethod {
         method: Box<JsStaticMethod<R>>,
     },
@@ -69,7 +69,7 @@ pub struct JsProxy<R: JsRuntimeAdapter> {
     pub namespace: &'static [&'static str],
     constructor: Option<Box<JsProxyConstructor<R>>>,
     members: HashMap<&'static str, JsProxyMember<R>>,
-    _static_members: HashMap<&'static str, JsStaticProxyMember<R>>, // enum
+    static_members: HashMap<&'static str, JsProxyStaticMember<R>>, // enum
     _event_handlers: HashMap<&'static str, Vec<Box<dyn JsValueAdapter<JsRuntimeAdapterType = R>>>>,
     finalizer: Option<Box<JsFinalizer<R>>>,
 }
@@ -146,6 +146,58 @@ impl<R: JsRuntimeAdapter> JsProxy<R> {
         self.members.insert(
             name,
             JsProxyMember::GetterSetter {
+                get: Box::new(getter),
+                set: Box::new(setter),
+            },
+        );
+    }
+    pub fn add_static_method<M>(&mut self, name: &'static str, method: M)
+    where
+        M: Fn(
+                &R,
+                &R::JsRealmAdapterType,
+                &[&R::JsValueAdapterType],
+            ) -> Result<Box<<R as JsRuntimeAdapter>::JsValueAdapterType>, JsError>
+            + 'static,
+    {
+        assert!(!self.static_members.contains_key(name));
+        self.static_members.insert(
+            name,
+            JsProxyStaticMember::StaticMethod {
+                method: Box::new(method),
+            },
+        );
+    }
+    pub fn add_static_getter<G, S>(&mut self, name: &'static str, getter: G)
+    where
+        G: Fn(
+                &R,
+                &<R as JsRuntimeAdapter>::JsRealmAdapterType,
+            ) -> Result<<R as JsRuntimeAdapter>::JsValueAdapterType, JsError>
+            + 'static,
+    {
+        self.add_static_getter_setter(name, getter, |_rt, _realm, _val| {
+            Err(JsError::new_str("Cannot update read-only member"))
+        })
+    }
+    pub fn add_static_getter_setter<G, S>(&mut self, name: &'static str, getter: G, setter: S)
+    where
+        G: Fn(
+                &R,
+                &<R as JsRuntimeAdapter>::JsRealmAdapterType,
+            ) -> Result<<R as JsRuntimeAdapter>::JsValueAdapterType, JsError>
+            + 'static,
+        S: Fn(
+                &R,
+                &<R as JsRuntimeAdapter>::JsRealmAdapterType,
+                &<R as JsRuntimeAdapter>::JsValueAdapterType,
+            ) -> Result<(), JsError>
+            + 'static,
+    {
+        assert!(!self.static_members.contains_key(name));
+        self.static_members.insert(
+            name,
+            JsProxyStaticMember::StaticGetterSetter {
                 get: Box::new(getter),
                 set: Box::new(setter),
             },
