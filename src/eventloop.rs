@@ -397,7 +397,7 @@ pub mod tests {
 
         let (tx, rx) = channel();
         let start = Instant::now();
-        let _ = test_loop.add(move || {
+        test_loop.add_void(move || {
             EventLoop::add_timeout(
                 move || {
                     tx.send(129).ok().expect("send failed");
@@ -405,8 +405,12 @@ pub mod tests {
                 Duration::from_secs(2),
             );
         });
-        let res = rx.recv().unwrap();
-        assert_eq!(res, 129);
+        let res = rx.recv();
+        let res_i32 = match res {
+            Ok(i) => i,
+            Err(e) => panic!("recv failed: {}", e),
+        };
+        assert_eq!(res_i32, 129);
         // we should be at least 2 seconds further
         assert!(Instant::now().gt(&start.add(Duration::from_millis(1999))));
         // but certainly not 3
