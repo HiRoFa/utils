@@ -22,7 +22,8 @@ pub type JsStaticMethod<R> =
         &[<R as JsRealmAdapter>::JsValueAdapterType],
     ) -> Result<Box<<R as JsRealmAdapter>::JsValueAdapterType>, JsError>;
 
-pub type JsFinalizer<R> = dyn Fn(&R, &JsProxyInstanceId);
+pub type JsFinalizer<R> =
+    dyn Fn(&<R as JsRealmAdapter>::JsRuntimeAdapterType, &R, &JsProxyInstanceId);
 pub type JsGetter<R> = dyn Fn(
     &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,
@@ -89,7 +90,7 @@ impl<R: JsRealmAdapter> JsProxy<R> {
     }
     pub fn set_finalizer<F>(&mut self, finalizer: F)
     where
-        F: Fn(&R, &JsProxyInstanceId) + 'static,
+        F: Fn(&<R as JsRealmAdapter>::JsRuntimeAdapterType, &R, &JsProxyInstanceId) + 'static,
     {
         assert!(self.finalizer.is_none());
         self.finalizer.replace(Box::new(finalizer));
