@@ -92,7 +92,7 @@ pub trait JsRealmAdapter {
 
     fn js_eval(&self, script: Script) -> Result<Self::JsValueAdapterType, JsError>;
 
-    fn js_proxy_install(&self, proxy: JsProxy<Self>)
+    fn js_proxy_install(&self, proxy: JsProxy<Self>) -> Result<Self::JsValueAdapterType, JsError>
     where
         Self: Sized;
     fn js_proxy_instantiate(

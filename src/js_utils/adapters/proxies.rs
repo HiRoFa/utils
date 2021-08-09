@@ -7,19 +7,19 @@ pub type JsProxyConstructor<R> = dyn Fn(
     &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,
     &JsProxyInstanceId,
-    &[&<R as JsRealmAdapter>::JsValueAdapterType],
+    &[<R as JsRealmAdapter>::JsValueAdapterType],
 ) -> Result<(), JsError>;
 pub type JsMethod<R> = dyn Fn(
     &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,
     &JsProxyInstanceId,
-    &[&<R as JsRealmAdapter>::JsValueAdapterType],
+    &[<R as JsRealmAdapter>::JsValueAdapterType],
 ) -> Result<Box<<R as JsRealmAdapter>::JsValueAdapterType>, JsError>;
 pub type JsStaticMethod<R> =
     dyn Fn(
         &<R as JsRealmAdapter>::JsRuntimeAdapterType,
         &R,
-        &[&<R as JsRealmAdapter>::JsValueAdapterType],
+        &[<R as JsRealmAdapter>::JsValueAdapterType],
     ) -> Result<Box<<R as JsRealmAdapter>::JsValueAdapterType>, JsError>;
 
 pub type JsFinalizer<R> = dyn Fn(&R, &JsProxyInstanceId);
@@ -66,11 +66,11 @@ pub enum JsProxyStaticMember<R: JsRealmAdapter> {
 pub struct JsProxy<R: JsRealmAdapter> {
     pub name: &'static str,
     pub namespace: &'static [&'static str],
-    constructor: Option<Box<JsProxyConstructor<R>>>,
-    members: HashMap<&'static str, JsProxyMember<R>>,
-    static_members: HashMap<&'static str, JsProxyStaticMember<R>>, // enum
-    event_handlers: HashMap<String, Vec<Box<R::JsValueAdapterType>>>,
-    finalizer: Option<Box<JsFinalizer<R>>>,
+    pub constructor: Option<Box<JsProxyConstructor<R>>>,
+    pub members: HashMap<&'static str, JsProxyMember<R>>,
+    pub static_members: HashMap<&'static str, JsProxyStaticMember<R>>, // enum
+    pub event_handlers: HashMap<String, Vec<Box<R::JsValueAdapterType>>>,
+    pub finalizer: Option<Box<JsFinalizer<R>>>,
 }
 
 impl<R: JsRealmAdapter> JsProxy<R> {
@@ -80,7 +80,7 @@ impl<R: JsRealmAdapter> JsProxy<R> {
                 &R::JsRuntimeAdapterType,
                 &R,
                 &JsProxyInstanceId,
-                &[&R::JsValueAdapterType],
+                &[R::JsValueAdapterType],
             ) -> Result<(), JsError>
             + 'static,
     {
@@ -100,7 +100,7 @@ impl<R: JsRealmAdapter> JsProxy<R> {
                 &R::JsRuntimeAdapterType,
                 &R,
                 &JsProxyInstanceId,
-                &[&R::JsValueAdapterType],
+                &[R::JsValueAdapterType],
             ) -> Result<Box<<R as JsRealmAdapter>::JsValueAdapterType>, JsError>
             + 'static,
     {
@@ -155,7 +155,7 @@ impl<R: JsRealmAdapter> JsProxy<R> {
         M: Fn(
                 &R::JsRuntimeAdapterType,
                 &R,
-                &[&R::JsValueAdapterType],
+                &[R::JsValueAdapterType],
             ) -> Result<Box<<R as JsRealmAdapter>::JsValueAdapterType>, JsError>
             + 'static,
     {
