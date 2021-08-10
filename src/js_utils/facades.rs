@@ -1,5 +1,6 @@
 use crate::js_utils::adapters::JsRuntimeAdapter;
 use crate::js_utils::{JsError, Script, ScriptPreProcessor};
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Weak;
@@ -186,7 +187,42 @@ pub trait JsValueFacade: Send + Sync {
         panic!("not a bool");
     }
     fn js_get_type(&self) -> JsValueType;
-    // todo stuff like array_length,props,get_prom_res_fut/block/invoke_function/invoke_batch/resolve_promise
+    // todo stuff like get_prom_res_fut/block/invoke_batch/resolve_promise/add_promise_reactions
+    fn js_stringify(&self) -> Result<String, JsError>;
+    fn js_get_array(&self) -> Result<Vec<Box<dyn JsValueFacade>>, JsError> {
+        panic!("not an Array")
+    }
+    fn js_get_object(&self) -> Result<HashMap<String, Box<dyn JsValueFacade>>, JsError> {
+        panic!("not an Object")
+    }
+    #[allow(clippy::type_complexity)]
+    fn js_invoke_function(
+        &self,
+        _args: &[Box<dyn JsValueFacade>],
+    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, JsError>>>> {
+        panic!("not a Function")
+    }
+    fn js_invoke_function_sync(&self) -> Result<Box<dyn JsValueFacade>, JsError> {
+        panic!("not a Function")
+    }
+    fn js_invoke_function_void(&self) {
+        panic!("not a Function")
+    }
+    fn js_get_promise_result_sync(&self) -> Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>> {
+        panic!("not a Promise")
+    }
+    #[allow(clippy::type_complexity)]
+    fn js_get_promise_result(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>>>>> {
+        panic!("not a Promise")
+    }
+    fn js_resolve_promise(
+        &self,
+        _resolution: Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>>,
+    ) {
+        panic!("not a resolvable Promise")
+    }
 }
 
 pub struct JsNull {}
@@ -196,11 +232,19 @@ impl JsValueFacade for JsNull {
     fn js_get_type(&self) -> JsValueType {
         JsValueType::Null
     }
+
+    fn js_stringify(&self) -> Result<String, JsError> {
+        Ok("null".to_string())
+    }
 }
 
 impl JsValueFacade for JsUndefined {
     fn js_get_type(&self) -> JsValueType {
         JsValueType::Undefined
+    }
+
+    fn js_stringify(&self) -> Result<String, JsError> {
+        Ok("undefined".to_string())
     }
 }
 
@@ -212,6 +256,10 @@ impl JsValueFacade for i32 {
     fn js_get_type(&self) -> JsValueType {
         JsValueType::I32
     }
+
+    fn js_stringify(&self) -> Result<String, JsError> {
+        Ok(format!("{}", self.js_as_i32()))
+    }
 }
 
 impl JsValueFacade for f64 {
@@ -221,6 +269,9 @@ impl JsValueFacade for f64 {
 
     fn js_get_type(&self) -> JsValueType {
         JsValueType::F64
+    }
+    fn js_stringify(&self) -> Result<String, JsError> {
+        Ok(format!("{}", self.js_as_f64()))
     }
 }
 
@@ -232,6 +283,9 @@ impl JsValueFacade for bool {
     fn js_get_type(&self) -> JsValueType {
         JsValueType::Boolean
     }
+    fn js_stringify(&self) -> Result<String, JsError> {
+        Ok(format!("{}", self.js_as_bool()))
+    }
 }
 
 impl JsValueFacade for String {
@@ -241,5 +295,8 @@ impl JsValueFacade for String {
 
     fn js_get_type(&self) -> JsValueType {
         JsValueType::String
+    }
+    fn js_stringify(&self) -> Result<String, JsError> {
+        Ok(format!("\"{}\"", self.js_as_str().replace("\"", "\\\"")))
     }
 }
