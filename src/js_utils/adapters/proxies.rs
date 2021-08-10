@@ -14,13 +14,12 @@ pub type JsMethod<R> = dyn Fn(
     &R,
     &JsProxyInstanceId,
     &[<R as JsRealmAdapter>::JsValueAdapterType],
-) -> Result<Box<<R as JsRealmAdapter>::JsValueAdapterType>, JsError>;
-pub type JsStaticMethod<R> =
-    dyn Fn(
-        &<R as JsRealmAdapter>::JsRuntimeAdapterType,
-        &R,
-        &[<R as JsRealmAdapter>::JsValueAdapterType],
-    ) -> Result<Box<<R as JsRealmAdapter>::JsValueAdapterType>, JsError>;
+) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>;
+pub type JsStaticMethod<R> = dyn Fn(
+    &<R as JsRealmAdapter>::JsRuntimeAdapterType,
+    &R,
+    &[<R as JsRealmAdapter>::JsValueAdapterType],
+) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>;
 
 pub type JsFinalizer<R> =
     dyn Fn(&<R as JsRealmAdapter>::JsRuntimeAdapterType, &R, &JsProxyInstanceId);
@@ -102,7 +101,7 @@ impl<R: JsRealmAdapter> JsProxy<R> {
                 &R,
                 &JsProxyInstanceId,
                 &[R::JsValueAdapterType],
-            ) -> Result<Box<<R as JsRealmAdapter>::JsValueAdapterType>, JsError>
+            ) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>
             + 'static,
     {
         assert!(!self.members.contains_key(name));
@@ -157,7 +156,7 @@ impl<R: JsRealmAdapter> JsProxy<R> {
                 &R::JsRuntimeAdapterType,
                 &R,
                 &[R::JsValueAdapterType],
-            ) -> Result<Box<<R as JsRealmAdapter>::JsValueAdapterType>, JsError>
+            ) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>
             + 'static,
     {
         assert!(!self.static_members.contains_key(name));
