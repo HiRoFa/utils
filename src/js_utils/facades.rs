@@ -186,6 +186,7 @@ pub trait JsValueFacade: Send + Sync {
         panic!("not a bool");
     }
     fn js_get_type(&self) -> JsValueType;
+    // todo stuff like array_length,props,get_prom_res_fut/block/invoke_function/invoke_batch/resolve_promise
 }
 
 pub struct JsNull {}

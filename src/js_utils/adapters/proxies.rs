@@ -1,5 +1,4 @@
-use crate::js_utils::adapters::{JsRealmAdapter, JsValueAdapter};
-use crate::js_utils::facades::JsValueType;
+use crate::js_utils::adapters::JsRealmAdapter;
 use crate::js_utils::JsError;
 use std::collections::HashMap;
 
@@ -69,8 +68,9 @@ pub struct JsProxy<R: JsRealmAdapter> {
     pub constructor: Option<Box<JsProxyConstructor<R>>>,
     pub members: HashMap<&'static str, JsProxyMember<R>>,
     pub static_members: HashMap<&'static str, JsProxyStaticMember<R>>, // enum
-    pub event_handlers: HashMap<String, Vec<Box<R::JsValueAdapterType>>>,
     pub finalizer: Option<Box<JsFinalizer<R>>>,
+    pub event_target: bool,
+    pub static_event_target: bool,
 }
 
 impl<R: JsRealmAdapter> JsProxy<R> {
@@ -202,50 +202,13 @@ impl<R: JsRealmAdapter> JsProxy<R> {
             },
         );
     }
-    pub fn add_event_handler(&mut self, event_id: &str, handler: R::JsValueAdapterType) {
-        //
-        assert!(handler.js_get_type() == JsValueType::Function);
-        let mut vec_opt = self.event_handlers.get_mut(event_id);
-        if vec_opt.is_none() {
-            self.event_handlers.insert(event_id.to_string(), vec![]);
-            vec_opt = self.event_handlers.get_mut(event_id);
-            debug_assert!(vec_opt.is_some());
-        }
-
-        let vec = vec_opt.unwrap();
-
-        vec.push(Box::new(handler));
+    pub fn set_event_target(&mut self, is_event_target: bool) -> &mut Self {
+        self.event_target = is_event_target;
+        self
     }
-    pub fn remove_event_handler(&mut self, event_id: &str, handler: R::JsValueAdapterType) {
-        //
-        assert!(handler.js_get_type() == JsValueType::Function);
-        let mut vec_opt = self.event_handlers.get_mut(event_id);
-        if vec_opt.is_none() {
-            self.event_handlers.insert(event_id.to_string(), vec![]);
-            vec_opt = self.event_handlers.get_mut(event_id);
-            debug_assert!(vec_opt.is_some());
-        }
-
-        let vec = vec_opt.unwrap();
-        if let Some(index) = vec.iter().position(|r| r.as_ref() == &handler) {
-            vec.remove(index);
-        }
-    }
-    pub fn invoke_event(
-        &self,
-        realm: &R,
-        event_id: &str,
-        args: &[R::JsValueAdapterType],
-    ) -> Result<(), JsError> {
-        //
-        if let Some(vec) = self.event_handlers.get(event_id) {
-            for handler in vec {
-                //
-                let h = handler.as_ref();
-                realm.js_function_invoke(None, h, args)?;
-            }
-        }
-        Ok(())
+    pub fn set_static_event_target(&mut self, is_static_event_target: bool) -> &mut Self {
+        self.static_event_target = is_static_event_target;
+        self
     }
 }
 

@@ -92,7 +92,11 @@ pub trait JsRealmAdapter {
 
     fn js_eval(&self, script: Script) -> Result<Self::JsValueAdapterType, JsError>;
 
-    fn js_proxy_install(&self, proxy: JsProxy<Self>) -> Result<Self::JsValueAdapterType, JsError>
+    fn js_proxy_install(
+        &self,
+        proxy: JsProxy<Self>,
+        add_global_var: bool,
+    ) -> Result<Self::JsValueAdapterType, JsError>
     where
         Self: Sized;
     fn js_proxy_instantiate(
@@ -100,14 +104,22 @@ pub trait JsRealmAdapter {
         namespace: &[&str],
         class_name: &str,
         arguments: &[Self::JsValueAdapterType],
-    ) -> Result<Self::JsValueAdapterType, JsError>;
-    fn js_proxy_invoke_event(
+    ) -> Result<(JsProxyInstanceId, Self::JsValueAdapterType), JsError>;
+    fn js_proxy_dispatch_event(
         &self,
-        proxy_handle: &JsProxyInstanceId,
+        namespace: &[&str],
+        class_name: &str,
+        proxy_instance_id: &JsProxyInstanceId,
         event_id: &str,
         event_obj: &Self::JsValueAdapterType,
-    );
-
+    ) -> Result<bool, JsError>;
+    fn js_proxy_dispatch_static_event(
+        &self,
+        namespace: &[&str],
+        class_name: &str,
+        event_id: &str,
+        event_obj: &Self::JsValueAdapterType,
+    ) -> Result<bool, JsError>;
     #[allow(clippy::type_complexity)]
     fn js_install_function(
         &self,
