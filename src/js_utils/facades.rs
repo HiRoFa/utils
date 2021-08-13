@@ -1,9 +1,10 @@
-use crate::js_utils::adapters::JsRuntimeAdapter;
+use crate::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};
 use crate::js_utils::{JsError, Script, ScriptPreProcessor};
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Weak;
+use std::sync::mpsc::channel;
+use std::sync::{Arc, Weak};
 
 pub struct JsProxy {}
 
@@ -47,7 +48,7 @@ pub trait JsRuntimeBuilder {
 /// handles the logic for transferring data from and to the JsRuntimeAdapter
 pub trait JsRuntimeFacade {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
-    type JsRuntimeFacadeInnerType: JsRuntimeFacadeInner;
+    type JsRuntimeFacadeInnerType: JsRuntimeFacadeInner + Send + Sync;
 
     fn js_get_runtime_facade_inner(&self) -> Weak<Self::JsRuntimeFacadeInnerType>;
 
@@ -170,6 +171,160 @@ pub enum JsValueType {
     Array,
 }
 
+pub struct CachedJsObjectRef<R: JsRealmAdapter> {
+    id: i32,
+    rti: Weak<<<<R as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType>,
+    realm: String,
+}
+
+impl<R: JsRealmAdapter> CachedJsObjectRef<R> {
+    pub(crate) fn new(realm: &R, obj: &R::JsValueAdapterType) -> Self {
+        let id = realm.js_cache_add(obj);
+        let rti = realm.js_get_runtime_facade_inner();
+        Self {
+            id,
+            rti,
+            realm: realm.js_get_realm_id().to_string(),
+        }
+    }
+    pub fn with_obj_sync<S: Send + 'static, C: FnOnce(&<<<<<<R as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType, &<<<<<<<R as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType) -> S + Send + 'static>(
+        &self,
+        consumer: C,
+    ) -> Result<S, JsError>{
+        if let Some(rti) = self.rti.upgrade() {
+            let id = self.id;
+            let realm = self.realm.clone();
+            rti.js_exe_rt_task_in_event_loop(move |rt| {
+                if let Some(realm) = rt.js_get_realm(realm.as_str()) {
+                    Ok(realm.js_cache_with(id, |obj| consumer(realm, obj)))
+                } else {
+                    Err(JsError::new_str("Realm was disposed"))
+                }
+            })
+        } else {
+            Err(JsError::new_str("Runtime was disposed"))
+        }
+    }
+    pub fn with_obj_void<C: FnOnce(&<<<<<<R as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType, &<<<<<<<R as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType) + Send + 'static>(&self, consumer: C){
+        if let Some(rti) = self.rti.upgrade() {
+            let id = self.id;
+            let realm = self.realm.clone();
+            rti.js_add_rt_task_to_event_loop_void(move |rt| {
+                if let Some(realm) = rt.js_get_realm(realm.as_str()) {
+                    realm.js_cache_with(id, |obj| consumer(realm, obj));
+                }
+            });
+        }
+    }
+    pub fn with_obj<S: Send + 'static, C: FnOnce(&<<<<<<R as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType, &<<<<<<<R as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType) -> S + Send + 'static>(
+        &self,
+        consumer: C,
+    ) -> Pin<Box<dyn Future<Output = Result<S, JsError>>>>{
+        if let Some(rti) = self.rti.upgrade() {
+            let id = self.id;
+            let realm = self.realm.clone();
+            rti.js_add_rt_task_to_event_loop(move |rt| {
+                if let Some(realm) = rt.js_get_realm(realm.as_str()) {
+                    Ok(realm.js_cache_with(id, |obj| consumer(realm, obj)))
+                } else {
+                    Err(JsError::new_str("Realm was disposed"))
+                }
+            })
+        } else {
+            panic!("Runtime was disposed");
+        }
+    }
+}
+
+pub(crate) struct FromJsPromise<R: JsRealmAdapter> {
+    pub(crate) obj: Arc<CachedJsObjectRef<R>>,
+}
+
+impl<R: JsRealmAdapter> JsValueFacade for FromJsPromise<R> {
+    fn js_get_type(&self) -> JsValueType {
+        JsValueType::Promise
+    }
+
+    fn js_stringify(&self) -> Result<String, JsError> {
+        Ok("Promise<FromJsPromise>".to_string())
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn js_get_promise_result_sync(
+        &self,
+    ) -> Result<Result<Box<dyn JsValueFacade + 'static>, Box<dyn JsValueFacade + 'static>>, JsError>
+    {
+        let (tx, rx) = channel();
+        let _ = self.obj.with_obj_sync(move |realm, obj| {
+            // send results to tx
+            let tx1 = tx.clone();
+            let tx2 = tx.clone();
+
+            let then_func = realm.js_function_create(
+                "then",
+                move |realm, _this, args| {
+                    //
+                    let resolution = &args[0];
+                    let send_res = match realm.to_js_value_facade(resolution) {
+                        Ok(vf) => tx1.send(Ok(Ok(vf))),
+                        Err(conv_err) => tx1.send(Err(conv_err)),
+                    };
+                    send_res.map_err(|e| JsError::new_string(format!("could not send: {}", e)))?;
+                    realm.js_undefined_create()
+                },
+                1,
+            )?;
+            let catch_func = realm.js_function_create(
+                "catch",
+                move |realm, _this, args| {
+                    //
+                    let rejection = &args[0];
+                    let send_res = match realm.to_js_value_facade(rejection) {
+                        Ok(vf) => tx2.send(Ok(Err(vf))),
+                        Err(conv_err) => tx2.send(Err(conv_err)),
+                    };
+                    send_res.map_err(|e| JsError::new_string(format!("could not send: {}", e)))?;
+                    realm.js_undefined_create()
+                },
+                1,
+            )?;
+
+            let res = realm.js_promise_add_reactions(obj, Some(then_func), Some(catch_func), None);
+            if let Some(add_reactions_err) = res.err() {
+                tx.send(Err(add_reactions_err))
+                    .map_err(|e| JsError::new_string(format!("could not send: {}", e)))
+            } else {
+                Ok(())
+            }
+        })?;
+
+        // get result from rx
+        rx.recv()
+            .map_err(|e| JsError::new_string(format!("receive failed: {}", e)))?
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn js_get_promise_result(
+        &self,
+    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>>>>> {
+        todo!()
+    }
+}
+
+impl<R: JsRealmAdapter> Drop for CachedJsObjectRef<R> {
+    fn drop(&mut self) {
+        if let Some(rti) = self.rti.upgrade() {
+            let id = self.id;
+            let realm = self.realm.clone();
+            rti.js_exe_rt_task_in_event_loop(move |rt| {
+                if let Some(realm) = rt.js_get_realm(realm.as_str()) {
+                    realm.js_cache_dispose(id);
+                }
+            })
+        }
+    }
+}
+
 pub trait JsValueFacade: Send + Sync {
     fn js_is_null_or_undefined(&self) -> bool {
         self.js_get_type() == JsValueType::Null || self.js_get_type() == JsValueType::Undefined
@@ -208,7 +363,11 @@ pub trait JsValueFacade: Send + Sync {
     fn js_invoke_function_void(&self) {
         panic!("not a Function")
     }
-    fn js_get_promise_result_sync(&self) -> Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>> {
+    #[allow(clippy::type_complexity)]
+    fn js_get_promise_result_sync(
+        &self,
+    ) -> Result<Result<Box<dyn JsValueFacade + 'static>, Box<dyn JsValueFacade + 'static>>, JsError>
+    {
         panic!("not a Promise")
     }
     #[allow(clippy::type_complexity)]
