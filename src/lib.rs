@@ -3,4 +3,5 @@ pub mod cache;
 pub mod debug_mutex;
 pub mod eventloop;
 pub mod js_utils;
+pub mod resolvable_future;
 pub mod task_manager;
