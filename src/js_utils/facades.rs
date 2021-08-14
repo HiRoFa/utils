@@ -388,7 +388,7 @@ impl<R: JsRealmAdapter> Drop for CachedJsObjectRef<R> {
 
 pub trait JsValueFacade: Send + Sync {
     fn js_is_null_or_undefined(&self) -> bool {
-        self.js_get_type() == JsValueType::Null || self.js_get_type() == JsValueType::Undefined
+        false
     }
     fn js_as_i32(&self) -> i32 {
         panic!("not an i32");
@@ -405,10 +405,10 @@ pub trait JsValueFacade: Send + Sync {
     fn js_get_type(&self) -> JsValueType;
 
     fn js_stringify(&self) -> Result<String, JsError>;
-    fn js_get_array(&self) -> Result<Vec<Box<dyn JsValueFacade>>, JsError> {
+    fn js_get_array(&self) -> Result<&Vec<Box<dyn JsValueFacade>>, JsError> {
         panic!("not an Array")
     }
-    fn js_get_object(&self) -> Result<HashMap<String, Box<dyn JsValueFacade>>, JsError> {
+    fn js_get_object(&self) -> Result<&HashMap<String, Box<dyn JsValueFacade>>, JsError> {
         panic!("not an Object")
     }
     #[allow(clippy::type_complexity)]
@@ -453,8 +453,49 @@ pub trait JsValueFacade: Send + Sync {
 
 pub struct JsNull {}
 pub struct JsUndefined {}
+pub struct JsPromise {}
+pub struct JsFunction {}
+pub type JsObject = HashMap<String, Box<dyn JsValueFacade>>;
+pub type JsArray = Vec<Box<dyn JsValueFacade>>;
+
+// todo jspromhandle/jsfunc need a way to be cached and dropped when dropped in js
+
+impl JsPromise {
+    pub fn new() -> Self {
+        Self {}
+    }
+    pub fn new_resolving<F: FnOnce() -> Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>>>(
+        _resolver: F,
+    ) -> Self {
+        todo!();
+    }
+    pub fn new_async<R>(_resolver: R) -> Self
+    where
+        R: Future<Output = Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>>> + Send + 'static,
+    {
+        todo!();
+    }
+}
+
+impl Default for JsPromise {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl JsFunction {
+    pub fn new<F: Fn() -> Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>>>(
+        _callback: F,
+    ) -> Self {
+        todo!();
+    }
+}
 
 impl JsValueFacade for JsNull {
+    fn js_is_null_or_undefined(&self) -> bool {
+        true
+    }
+
     fn js_get_type(&self) -> JsValueType {
         JsValueType::Null
     }
@@ -465,12 +506,71 @@ impl JsValueFacade for JsNull {
 }
 
 impl JsValueFacade for JsUndefined {
+    fn js_is_null_or_undefined(&self) -> bool {
+        true
+    }
+
     fn js_get_type(&self) -> JsValueType {
         JsValueType::Undefined
     }
 
     fn js_stringify(&self) -> Result<String, JsError> {
         Ok("undefined".to_string())
+    }
+}
+
+impl JsValueFacade for JsPromise {
+    fn js_get_type(&self) -> JsValueType {
+        todo!()
+    }
+
+    fn js_stringify(&self) -> Result<String, JsError> {
+        todo!()
+    }
+
+    fn js_resolve_promise(
+        &self,
+        _resolution: Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>>,
+    ) {
+        todo!()
+    }
+}
+
+impl JsValueFacade for JsFunction {
+    fn js_get_type(&self) -> JsValueType {
+        todo!()
+    }
+
+    fn js_stringify(&self) -> Result<String, JsError> {
+        todo!()
+    }
+}
+
+impl JsValueFacade for Vec<Box<dyn JsValueFacade>> {
+    fn js_get_type(&self) -> JsValueType {
+        JsValueType::Array
+    }
+
+    fn js_stringify(&self) -> Result<String, JsError> {
+        todo!()
+    }
+
+    fn js_get_array(&self) -> Result<&Vec<Box<dyn JsValueFacade>>, JsError> {
+        Ok(self)
+    }
+}
+
+impl JsValueFacade for HashMap<String, Box<dyn JsValueFacade>> {
+    fn js_get_type(&self) -> JsValueType {
+        JsValueType::Object
+    }
+
+    fn js_stringify(&self) -> Result<String, JsError> {
+        todo!()
+    }
+
+    fn js_get_object(&self) -> Result<&HashMap<String, Box<dyn JsValueFacade>>, JsError> {
+        Ok(self)
     }
 }
 
