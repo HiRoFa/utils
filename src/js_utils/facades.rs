@@ -1,5 +1,6 @@
 use crate::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};
 use crate::js_utils::{JsError, Script, ScriptPreProcessor};
+use crate::resolvable_future::ResolvableFuture;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
@@ -306,8 +307,68 @@ impl<R: JsRealmAdapter> JsValueFacade for FromJsPromise<R> {
     #[allow(clippy::type_complexity)]
     fn js_get_promise_result(
         &self,
-    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>>>>> {
-        todo!()
+    ) -> Pin<
+        Box<
+            dyn Future<
+                Output = Result<Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>>, JsError>,
+            >,
+        >,
+    > {
+        let fut: ResolvableFuture<
+            Result<Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>>, JsError>,
+        > = ResolvableFuture::new();
+        let resolver = fut.get_resolver();
+        let resolver1 = resolver.clone();
+        let resolver2 = resolver.clone();
+
+        self.obj.with_obj_void(move |realm, obj| {
+            let res = || {
+                let then_func = realm.js_function_create(
+                    "then",
+                    move |realm, _this, args| {
+                        //
+                        let resolution = &args[0];
+                        let send_res = match realm.to_js_value_facade(resolution) {
+                            Ok(vf) => resolver1.resolve(Ok(Ok(vf))),
+                            Err(conv_err) => resolver1.resolve(Err(conv_err)),
+                        };
+                        send_res
+                            .map_err(|e| JsError::new_string(format!("could not send: {}", e)))?;
+                        realm.js_undefined_create()
+                    },
+                    1,
+                )?;
+                let catch_func = realm.js_function_create(
+                    "catch",
+                    move |realm, _this, args| {
+                        //
+                        let rejection = &args[0];
+                        let send_res = match realm.to_js_value_facade(rejection) {
+                            Ok(vf) => resolver2.resolve(Ok(Err(vf))),
+                            Err(conv_err) => resolver2.resolve(Err(conv_err)),
+                        };
+                        send_res
+                            .map_err(|e| JsError::new_string(format!("could not send: {}", e)))?;
+                        realm.js_undefined_create()
+                    },
+                    1,
+                )?;
+
+                realm.js_promise_add_reactions(obj, Some(then_func), Some(catch_func), None)?;
+                Ok(())
+            };
+            match res() {
+                Ok(_) => {}
+                Err(e) => match resolver.resolve(Err(e)) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::error!("failed to resolve 47643: {}", e);
+                    }
+                },
+            }
+        });
+
+        Box::pin(fut)
     }
 }
 
@@ -342,7 +403,7 @@ pub trait JsValueFacade: Send + Sync {
         panic!("not a bool");
     }
     fn js_get_type(&self) -> JsValueType;
-    // todo stuff like get_prom_res_fut/block/invoke_batch/resolve_promise/add_promise_reactions
+
     fn js_stringify(&self) -> Result<String, JsError>;
     fn js_get_array(&self) -> Result<Vec<Box<dyn JsValueFacade>>, JsError> {
         panic!("not an Array")
@@ -373,7 +434,13 @@ pub trait JsValueFacade: Send + Sync {
     #[allow(clippy::type_complexity)]
     fn js_get_promise_result(
         &self,
-    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>>>>> {
+    ) -> Pin<
+        Box<
+            dyn Future<
+                Output = Result<Result<Box<dyn JsValueFacade>, Box<dyn JsValueFacade>>, JsError>,
+            >,
+        >,
+    > {
         panic!("not a Promise")
     }
     fn js_resolve_promise(
