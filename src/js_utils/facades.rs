@@ -156,7 +156,7 @@ pub trait JsRuntimeFacade {
 
 /// The JsValueFacade is a Send-able representation of a variable in the Script engine
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub enum JsValueType {
     I32,
     F64,
@@ -386,6 +386,200 @@ impl<R: JsRealmAdapter> Drop for CachedJsObjectRef<R> {
     }
 }
 
+pub struct CachedJsObjectRef2 {
+    id: i32,
+    realm_name: String,
+    drop_action: Option<Box<dyn FnOnce() + Send>>,
+}
+
+pub struct CachedJsPromiseRef {
+    pub cached_object: CachedJsObjectRef2,
+}
+
+pub struct CachedJsArrayRef {
+    pub cached_object: CachedJsObjectRef2,
+}
+
+pub struct CachedJsFunctionRef {
+    pub cached_object: CachedJsObjectRef2,
+}
+
+impl CachedJsObjectRef2 {
+    pub(crate) fn new<R: JsRealmAdapter + 'static>(realm: &R, obj: &R::JsValueAdapterType) -> Self {
+        let id = realm.js_cache_add(obj);
+        let rti_ref = realm.js_get_runtime_facade_inner();
+
+        let drop_id = id;
+        let drop_realm_name = realm.js_get_realm_id().to_string();
+        Self::new2(id, realm.js_get_realm_id().to_string(), move || {
+            if let Some(rti) = rti_ref.upgrade() {
+                rti.js_add_rt_task_to_event_loop_void(move |rt| {
+                    if let Some(realm) = rt.js_get_realm(drop_realm_name.as_str()) {
+                        realm.js_cache_dispose(drop_id);
+                    }
+                })
+            }
+        })
+    }
+    fn new2<F: FnOnce() + Send + 'static>(id: i32, realm_name: String, drop_action: F) -> Self {
+        Self {
+            id,
+            realm_name,
+            drop_action: Some(Box::new(drop_action)),
+        }
+    }
+    pub async fn js_get_object<R: JsRuntimeFacadeInner>(
+        &self,
+        rti: &R,
+    ) -> Result<HashMap<String, JsValueFacade2>, JsError> {
+        let id = self.id;
+        let realm_name = self.realm_name.clone();
+        rti.js_add_rt_task_to_event_loop(move |rt| {
+            if let Some(realm) = rt.js_get_realm(realm_name.as_str()) {
+                //let realm: JsRealmAdapter = realm;
+                let mut ret = HashMap::new();
+                let results = realm.js_cache_with(id, |obj| {
+                    realm.js_object_traverse(obj, |name, value| {
+                        //
+                        Ok((name.to_string(), realm.to_js_value_facade2(value)))
+                    })
+                })?;
+                for result in results {
+                    ret.insert(result.0, result.1?);
+                }
+                Ok(ret)
+            } else {
+                Err(JsError::new_str("no such realm"))
+            }
+        })
+        .await
+    }
+}
+
+impl Drop for CachedJsObjectRef2 {
+    fn drop(&mut self) {
+        if let Some(da) = self.drop_action.take() {
+            da();
+        }
+    }
+}
+
+impl CachedJsPromiseRef {
+    pub async fn js_get_promise_result<R: JsRuntimeFacadeInner>(
+        &self,
+        _rti: &R,
+    ) -> Result<Result<JsValueFacade2, JsValueFacade2>, JsError> {
+        todo!()
+    }
+}
+
+impl CachedJsArrayRef {
+    pub async fn js_get_array<R: JsRuntimeFacadeInner>(
+        &self,
+        _rti: &R,
+    ) -> Result<Vec<JsValueFacade2>, JsError> {
+        todo!()
+    }
+}
+
+impl CachedJsFunctionRef {
+    pub async fn js_invoke_function<R: JsRuntimeFacadeInner>(
+        &self,
+        _rti: &R,
+        _args: Vec<JsValueFacade2>,
+    ) -> Result<JsValueFacade2, JsError> {
+        todo!()
+    }
+}
+
+pub enum JsValueFacade2 {
+    I32 {
+        val: i32,
+    },
+    F64 {
+        val: f64,
+    },
+    String {
+        val: String,
+    },
+    Boolean {
+        val: bool,
+    },
+    JsObject {
+        // obj which is a ref to obj in Js
+        cached_object: CachedJsObjectRef2,
+    },
+    JsPromise {
+        cached_promise: CachedJsPromiseRef,
+    },
+    JsArray {
+        cached_array: CachedJsArrayRef,
+    },
+    JsFunction {
+        cached_function: CachedJsFunctionRef,
+    },
+    // obj created from rust
+    Object {
+        val: HashMap<String, JsValueFacade2>,
+    },
+    // array created from rust
+    Array {
+        val: Vec<JsValueFacade2>,
+    },
+    // Promise created from rust
+    Promise {
+        // resolve_handle
+    },
+    // Function created from rust
+    Function {
+        func: Box<dyn Fn(&[JsValueFacade2]) -> Result<JsValueFacade2, JsValueFacade2> + Send>,
+    },
+    Null,
+    Undefined,
+}
+
+impl JsValueFacade2 {
+    pub fn new_callback<
+        F: Fn(&[JsValueFacade2]) -> Result<JsValueFacade2, JsValueFacade2> + Send + 'static,
+    >(
+        callback: F,
+    ) -> Self {
+        Self::Function {
+            func: Box::new(callback),
+        }
+    }
+    pub fn new_promise<F: FnOnce() -> Result<JsValueFacade2, JsValueFacade2>>(
+        _resolver: F,
+    ) -> Self {
+        JsValueFacade2::Promise {}
+    }
+    // todo .. also return a resolvable handle?
+    pub fn new_resolvable_promise() -> (Self, ()) {
+        (JsValueFacade2::Promise {}, ())
+    }
+    pub fn js_is_null_or_undefined(&self) -> bool {
+        matches!(self, JsValueFacade2::Null | JsValueFacade2::Undefined)
+    }
+    pub fn js_get_value_type(&self) -> JsValueType {
+        match self {
+            JsValueFacade2::I32 { .. } => JsValueType::I32,
+            JsValueFacade2::F64 { .. } => JsValueType::F64,
+            JsValueFacade2::String { .. } => JsValueType::String,
+            JsValueFacade2::Boolean { .. } => JsValueType::Boolean,
+            JsValueFacade2::JsObject { .. } => JsValueType::Object,
+            JsValueFacade2::Null => JsValueType::Null,
+            JsValueFacade2::Undefined => JsValueType::Undefined,
+            JsValueFacade2::Object { .. } => JsValueType::Object,
+            JsValueFacade2::Array { .. } => JsValueType::Array,
+            JsValueFacade2::Promise { .. } => JsValueType::Promise,
+            JsValueFacade2::Function { .. } => JsValueType::Function,
+            JsValueFacade2::JsPromise { .. } => JsValueType::Promise,
+            JsValueFacade2::JsArray { .. } => JsValueType::Array,
+            JsValueFacade2::JsFunction { .. } => JsValueType::Function,
+        }
+    }
+}
+
 pub trait JsValueFacade: Send + Sync {
     fn js_is_null_or_undefined(&self) -> bool {
         false
@@ -457,8 +651,6 @@ pub struct JsPromise {}
 pub struct JsFunction {}
 pub type JsObject = HashMap<String, Box<dyn JsValueFacade>>;
 pub type JsArray = Vec<Box<dyn JsValueFacade>>;
-
-// todo jspromhandle/jsfunc need a way to be cached and dropped when dropped in js
 
 impl JsPromise {
     pub fn new() -> Self {

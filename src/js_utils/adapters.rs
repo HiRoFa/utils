@@ -1,7 +1,8 @@
 use crate::js_utils::adapters::proxies::{JsProxy, JsProxyInstanceId};
 use crate::js_utils::facades::{
-    CachedJsObjectRef, FromJsPromise, JsNull, JsRuntimeFacade, JsUndefined, JsValueFacade,
-    JsValueType,
+    CachedJsArrayRef, CachedJsFunctionRef, CachedJsObjectRef, CachedJsObjectRef2,
+    CachedJsPromiseRef, FromJsPromise, JsNull, JsRuntimeFacade, JsUndefined, JsValueFacade,
+    JsValueFacade2, JsValueType,
 };
 use crate::js_utils::{JsError, Script};
 use std::sync::{Arc, Weak};
@@ -69,6 +70,57 @@ pub trait JsRealmAdapter {
             JsValueType::Array => {
                 todo!();
             }
+        };
+        Ok(res)
+    }
+
+    fn to_js_value_facade2(
+        &self,
+        js_value: &Self::JsValueAdapterType,
+    ) -> Result<JsValueFacade2, JsError>
+    where
+        Self: Sized + 'static,
+    {
+        let res: JsValueFacade2 = match js_value.js_get_type() {
+            JsValueType::I32 => JsValueFacade2::I32 {
+                val: js_value.js_to_i32(),
+            },
+            JsValueType::F64 => JsValueFacade2::F64 {
+                val: js_value.js_to_f64(),
+            },
+            JsValueType::String => JsValueFacade2::String {
+                val: js_value.js_to_string()?,
+            },
+            JsValueType::Boolean => JsValueFacade2::Boolean {
+                val: js_value.js_to_bool(),
+            },
+            JsValueType::Object => JsValueFacade2::JsObject {
+                cached_object: CachedJsObjectRef2::new(self, js_value),
+            },
+            JsValueType::Function => JsValueFacade2::JsFunction {
+                cached_function: CachedJsFunctionRef {
+                    cached_object: CachedJsObjectRef2::new(self, js_value),
+                },
+            },
+            JsValueType::BigInt => {
+                todo!();
+            }
+            JsValueType::Promise => JsValueFacade2::JsPromise {
+                cached_promise: CachedJsPromiseRef {
+                    cached_object: CachedJsObjectRef2::new(self, js_value),
+                },
+            },
+            JsValueType::Date => {
+                todo!();
+            }
+            JsValueType::Null => JsValueFacade2::Null,
+            JsValueType::Undefined => JsValueFacade2::Undefined,
+
+            JsValueType::Array => JsValueFacade2::JsArray {
+                cached_array: CachedJsArrayRef {
+                    cached_object: CachedJsObjectRef2::new(self, js_value),
+                },
+            },
         };
         Ok(res)
     }
