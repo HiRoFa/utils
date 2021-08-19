@@ -1,8 +1,10 @@
 use crate::js_utils::adapters::proxies::{JsProxy, JsProxyInstanceId};
+use crate::js_utils::facades::values::{
+    CachedJsArrayRef, CachedJsFunctionRef, CachedJsObjectRef2, CachedJsPromiseRef, JsValueFacade2,
+};
 use crate::js_utils::facades::{
-    CachedJsArrayRef, CachedJsFunctionRef, CachedJsObjectRef, CachedJsObjectRef2,
-    CachedJsPromiseRef, FromJsPromise, JsNull, JsRuntimeFacade, JsUndefined, JsValueFacade,
-    JsValueFacade2, JsValueType,
+    CachedJsObjectRef, FromJsPromise, JsNull, JsRuntimeFacade, JsUndefined, JsValueFacade,
+    JsValueType,
 };
 use crate::js_utils::{JsError, Script};
 use std::sync::{Arc, Weak};
@@ -123,6 +125,88 @@ pub trait JsRealmAdapter {
             },
         };
         Ok(res)
+    }
+
+    fn from_js_value_facade2(
+        &self,
+        value_facade: JsValueFacade2,
+    ) -> Result<Self::JsValueAdapterType, JsError>
+    where
+        Self: Sized + 'static,
+    {
+        match value_facade {
+            JsValueFacade2::I32 { val } => self.js_i32_create(val),
+            JsValueFacade2::F64 { val } => self.js_f64_create(val),
+            JsValueFacade2::String { val } => self.js_string_create(val.as_str()),
+            JsValueFacade2::Boolean { val } => self.js_boolean_create(val),
+            JsValueFacade2::JsObject { cached_object } => {
+                // todo check realm (else copy? or error?)
+                self.js_cache_with(cached_object.id, |obj| Ok(obj.clone()))
+            }
+            JsValueFacade2::JsPromise { cached_promise } => {
+                // todo check realm (else copy? or error?)
+                self.js_cache_with(cached_promise.cached_object.id, |obj| Ok(obj.clone()))
+            }
+            JsValueFacade2::JsArray { cached_array } => {
+                // todo check realm (else copy? or error?)
+                self.js_cache_with(cached_array.cached_object.id, |obj| Ok(obj.clone()))
+            }
+            JsValueFacade2::JsFunction { cached_function } => {
+                // todo check realm (else copy? or error?)
+                self.js_cache_with(cached_function.cached_object.id, |obj| Ok(obj.clone()))
+            }
+            JsValueFacade2::Object { val } => {
+                let obj = self.js_object_create()?;
+                for entry in val {
+                    let prop = self.from_js_value_facade2(entry.1)?;
+                    self.js_object_set_property(&obj, entry.0.as_str(), &prop)?;
+                }
+                Ok(obj)
+            }
+            JsValueFacade2::Array { val } => {
+                let obj = self.js_array_create()?;
+                for (x, entry) in val.into_iter().enumerate() {
+                    let prop = self.from_js_value_facade2(entry)?;
+                    self.js_array_set_element(&obj, x as u32, &prop)?;
+                }
+                Ok(obj)
+            }
+            JsValueFacade2::Promise { resolve_handle: _ } => {
+                let _prom = self.js_promise_create()?;
+                // todo.. give promise a resolvablefut?
+                // .await fut here in helper thread_pool and resolve or reject prom?
+                // add prom to thread_local AutoIdMap?
+                //Ok(prom.js_promise_get_value())
+                self.js_null_create()
+            }
+            JsValueFacade2::Function {
+                name,
+                arg_count,
+                func,
+            } => {
+                //
+
+                self.js_function_create(
+                    name.as_str(),
+                    move |realm, _this, args| {
+                        let mut esvf_args = vec![];
+                        for arg in args {
+                            esvf_args.push(realm.to_js_value_facade2(arg)?);
+                        }
+                        let esvf_res: Result<JsValueFacade2, JsError> = func(esvf_args.as_slice());
+
+                        match esvf_res {
+                            //
+                            Ok(jsvf) => realm.from_js_value_facade2(jsvf),
+                            Err(err) => Err(err),
+                        }
+                    },
+                    arg_count,
+                )
+            }
+            JsValueFacade2::Null => self.js_null_create(),
+            JsValueFacade2::Undefined => self.js_undefined_create(),
+        }
     }
 
     fn from_js_value_facade(
@@ -294,7 +378,7 @@ pub trait JsRealmAdapter {
         &self,
         array: &Self::JsValueAdapterType,
         index: u32,
-        element: Self::JsValueAdapterType,
+        element: &Self::JsValueAdapterType,
     ) -> Result<(), JsError>;
     fn js_array_get_length(&self, array: &Self::JsValueAdapterType) -> Result<u32, JsError>;
     fn js_array_create(&self) -> Result<Self::JsValueAdapterType, JsError>;
