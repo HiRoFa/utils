@@ -272,6 +272,23 @@ pub enum JsValueFacade {
 }
 
 impl JsValueFacade {
+    pub fn new_i32(val: i32) -> Self {
+        Self::I32 { val }
+    }
+    pub fn new_f64(val: f64) -> Self {
+        Self::F64 { val }
+    }
+    pub fn new_bool(val: bool) -> Self {
+        Self::Boolean { val }
+    }
+    pub fn new_str(val: &str) -> Self {
+        Self::String {
+            val: val.to_string(),
+        }
+    }
+    pub fn new_string(val: String) -> Self {
+        Self::String { val }
+    }
     pub fn new_callback<
         F: Fn(&[JsValueFacade]) -> Result<JsValueFacade, JsError> + Send + Sync + 'static,
     >(
