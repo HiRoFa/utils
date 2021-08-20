@@ -1,13 +1,10 @@
 use crate::js_utils::adapters::proxies::{JsProxy, JsProxyInstanceId};
 use crate::js_utils::facades::values::{
-    CachedJsArrayRef, CachedJsFunctionRef, CachedJsObjectRef2, CachedJsPromiseRef, JsValueFacade2,
+    CachedJsArrayRef, CachedJsFunctionRef, CachedJsObjectRef, CachedJsPromiseRef, JsValueFacade,
 };
-use crate::js_utils::facades::{
-    CachedJsObjectRef, FromJsPromise, JsNull, JsRuntimeFacade, JsUndefined, JsValueFacade,
-    JsValueType,
-};
+use crate::js_utils::facades::{JsRuntimeFacade, JsValueType};
 use crate::js_utils::{JsError, Script};
-use std::sync::{Arc, Weak};
+use std::sync::Weak;
 
 pub mod proxies;
 
@@ -41,137 +38,99 @@ pub trait JsRealmAdapter {
     fn to_js_value_facade(
         &self,
         js_value: &Self::JsValueAdapterType,
-    ) -> Result<Box<dyn JsValueFacade>, JsError>
+    ) -> Result<JsValueFacade, JsError>
     where
         Self: Sized + 'static,
     {
-        let res: Box<dyn JsValueFacade> = match js_value.js_get_type() {
-            JsValueType::I32 => Box::new(js_value.js_to_i32()),
-            JsValueType::F64 => Box::new(js_value.js_to_f64()),
-            JsValueType::String => Box::new(js_value.js_to_string()?),
-            JsValueType::Boolean => Box::new(js_value.js_to_bool()),
-            JsValueType::Object => {
-                todo!();
-            }
-            JsValueType::Function => {
-                todo!();
-            }
-            JsValueType::BigInt => {
-                todo!();
-            }
-            JsValueType::Promise => {
-                let obj = Arc::new(CachedJsObjectRef::new(self, js_value));
-                Box::new(FromJsPromise { obj })
-            }
-            JsValueType::Date => {
-                todo!();
-            }
-            JsValueType::Null => Box::new(JsNull {}),
-            JsValueType::Undefined => Box::new(JsUndefined {}),
-
-            JsValueType::Array => {
-                todo!();
-            }
-        };
-        Ok(res)
-    }
-
-    fn to_js_value_facade2(
-        &self,
-        js_value: &Self::JsValueAdapterType,
-    ) -> Result<JsValueFacade2, JsError>
-    where
-        Self: Sized + 'static,
-    {
-        let res: JsValueFacade2 = match js_value.js_get_type() {
-            JsValueType::I32 => JsValueFacade2::I32 {
+        let res: JsValueFacade = match js_value.js_get_type() {
+            JsValueType::I32 => JsValueFacade::I32 {
                 val: js_value.js_to_i32(),
             },
-            JsValueType::F64 => JsValueFacade2::F64 {
+            JsValueType::F64 => JsValueFacade::F64 {
                 val: js_value.js_to_f64(),
             },
-            JsValueType::String => JsValueFacade2::String {
+            JsValueType::String => JsValueFacade::String {
                 val: js_value.js_to_string()?,
             },
-            JsValueType::Boolean => JsValueFacade2::Boolean {
+            JsValueType::Boolean => JsValueFacade::Boolean {
                 val: js_value.js_to_bool(),
             },
-            JsValueType::Object => JsValueFacade2::JsObject {
-                cached_object: CachedJsObjectRef2::new(self, js_value),
+            JsValueType::Object => JsValueFacade::JsObject {
+                cached_object: CachedJsObjectRef::new(self, js_value),
             },
-            JsValueType::Function => JsValueFacade2::JsFunction {
+            JsValueType::Function => JsValueFacade::JsFunction {
                 cached_function: CachedJsFunctionRef {
-                    cached_object: CachedJsObjectRef2::new(self, js_value),
+                    cached_object: CachedJsObjectRef::new(self, js_value),
                 },
             },
             JsValueType::BigInt => {
                 todo!();
             }
-            JsValueType::Promise => JsValueFacade2::JsPromise {
+            JsValueType::Promise => JsValueFacade::JsPromise {
                 cached_promise: CachedJsPromiseRef {
-                    cached_object: CachedJsObjectRef2::new(self, js_value),
+                    cached_object: CachedJsObjectRef::new(self, js_value),
                 },
             },
             JsValueType::Date => {
                 todo!();
             }
-            JsValueType::Null => JsValueFacade2::Null,
-            JsValueType::Undefined => JsValueFacade2::Undefined,
+            JsValueType::Null => JsValueFacade::Null,
+            JsValueType::Undefined => JsValueFacade::Undefined,
 
-            JsValueType::Array => JsValueFacade2::JsArray {
+            JsValueType::Array => JsValueFacade::JsArray {
                 cached_array: CachedJsArrayRef {
-                    cached_object: CachedJsObjectRef2::new(self, js_value),
+                    cached_object: CachedJsObjectRef::new(self, js_value),
                 },
             },
         };
         Ok(res)
     }
 
-    fn from_js_value_facade2(
+    fn from_js_value_facade(
         &self,
-        value_facade: JsValueFacade2,
+        value_facade: JsValueFacade,
     ) -> Result<Self::JsValueAdapterType, JsError>
     where
         Self: Sized + 'static,
     {
         match value_facade {
-            JsValueFacade2::I32 { val } => self.js_i32_create(val),
-            JsValueFacade2::F64 { val } => self.js_f64_create(val),
-            JsValueFacade2::String { val } => self.js_string_create(val.as_str()),
-            JsValueFacade2::Boolean { val } => self.js_boolean_create(val),
-            JsValueFacade2::JsObject { cached_object } => {
+            JsValueFacade::I32 { val } => self.js_i32_create(val),
+            JsValueFacade::F64 { val } => self.js_f64_create(val),
+            JsValueFacade::String { val } => self.js_string_create(val.as_str()),
+            JsValueFacade::Boolean { val } => self.js_boolean_create(val),
+            JsValueFacade::JsObject { cached_object } => {
                 // todo check realm (else copy? or error?)
                 self.js_cache_with(cached_object.id, |obj| Ok(obj.clone()))
             }
-            JsValueFacade2::JsPromise { cached_promise } => {
+            JsValueFacade::JsPromise { cached_promise } => {
                 // todo check realm (else copy? or error?)
                 self.js_cache_with(cached_promise.cached_object.id, |obj| Ok(obj.clone()))
             }
-            JsValueFacade2::JsArray { cached_array } => {
+            JsValueFacade::JsArray { cached_array } => {
                 // todo check realm (else copy? or error?)
                 self.js_cache_with(cached_array.cached_object.id, |obj| Ok(obj.clone()))
             }
-            JsValueFacade2::JsFunction { cached_function } => {
+            JsValueFacade::JsFunction { cached_function } => {
                 // todo check realm (else copy? or error?)
                 self.js_cache_with(cached_function.cached_object.id, |obj| Ok(obj.clone()))
             }
-            JsValueFacade2::Object { val } => {
+            JsValueFacade::Object { val } => {
                 let obj = self.js_object_create()?;
                 for entry in val {
-                    let prop = self.from_js_value_facade2(entry.1)?;
+                    let prop = self.from_js_value_facade(entry.1)?;
                     self.js_object_set_property(&obj, entry.0.as_str(), &prop)?;
                 }
                 Ok(obj)
             }
-            JsValueFacade2::Array { val } => {
+            JsValueFacade::Array { val } => {
                 let obj = self.js_array_create()?;
                 for (x, entry) in val.into_iter().enumerate() {
-                    let prop = self.from_js_value_facade2(entry)?;
+                    let prop = self.from_js_value_facade(entry)?;
                     self.js_array_set_element(&obj, x as u32, &prop)?;
                 }
                 Ok(obj)
             }
-            JsValueFacade2::Promise { resolve_handle: _ } => {
+            JsValueFacade::Promise { resolve_handle: _ } => {
                 let _prom = self.js_promise_create()?;
                 // todo.. give promise a resolvablefut?
                 // .await fut here in helper thread_pool and resolve or reject prom?
@@ -179,7 +138,7 @@ pub trait JsRealmAdapter {
                 //Ok(prom.js_promise_get_value())
                 self.js_null_create()
             }
-            JsValueFacade2::Function {
+            JsValueFacade::Function {
                 name,
                 arg_count,
                 func,
@@ -191,53 +150,21 @@ pub trait JsRealmAdapter {
                     move |realm, _this, args| {
                         let mut esvf_args = vec![];
                         for arg in args {
-                            esvf_args.push(realm.to_js_value_facade2(arg)?);
+                            esvf_args.push(realm.to_js_value_facade(arg)?);
                         }
-                        let esvf_res: Result<JsValueFacade2, JsError> = func(esvf_args.as_slice());
+                        let esvf_res: Result<JsValueFacade, JsError> = func(esvf_args.as_slice());
 
                         match esvf_res {
                             //
-                            Ok(jsvf) => realm.from_js_value_facade2(jsvf),
+                            Ok(jsvf) => realm.from_js_value_facade(jsvf),
                             Err(err) => Err(err),
                         }
                     },
                     arg_count,
                 )
             }
-            JsValueFacade2::Null => self.js_null_create(),
-            JsValueFacade2::Undefined => self.js_undefined_create(),
-        }
-    }
-
-    fn from_js_value_facade(
-        &self,
-        value_facade: &dyn JsValueFacade,
-    ) -> Result<Self::JsValueAdapterType, JsError> {
-        match value_facade.js_get_type() {
-            JsValueType::I32 => self.js_i32_create(value_facade.js_as_i32()),
-            JsValueType::F64 => self.js_f64_create(value_facade.js_as_f64()),
-            JsValueType::String => self.js_string_create(value_facade.js_as_str()),
-            JsValueType::Boolean => self.js_boolean_create(value_facade.js_as_bool()),
-            JsValueType::Object => {
-                todo!()
-            }
-            JsValueType::Function => {
-                todo!()
-            }
-            JsValueType::BigInt => {
-                todo!()
-            }
-            JsValueType::Promise => {
-                todo!()
-            }
-            JsValueType::Date => {
-                todo!()
-            }
-            JsValueType::Null => self.js_null_create(),
-            JsValueType::Undefined => self.js_undefined_create(),
-            JsValueType::Array => {
-                todo!()
-            }
+            JsValueFacade::Null => self.js_null_create(),
+            JsValueFacade::Undefined => self.js_undefined_create(),
         }
     }
 

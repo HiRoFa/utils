@@ -5,25 +5,25 @@ use crate::resolvable_future::ResolvableFuture;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub struct CachedJsObjectRef2 {
+pub struct CachedJsObjectRef {
     pub(crate) id: i32,
     realm_id: String,
     drop_action: Option<Box<dyn FnOnce() + Send>>,
 }
 
 pub struct CachedJsPromiseRef {
-    pub cached_object: CachedJsObjectRef2,
+    pub cached_object: CachedJsObjectRef,
 }
 
 pub struct CachedJsArrayRef {
-    pub cached_object: CachedJsObjectRef2,
+    pub cached_object: CachedJsObjectRef,
 }
 
 pub struct CachedJsFunctionRef {
-    pub cached_object: CachedJsObjectRef2,
+    pub cached_object: CachedJsObjectRef,
 }
 
-impl CachedJsObjectRef2 {
+impl CachedJsObjectRef {
     pub(crate) fn new<R: JsRealmAdapter + 'static>(realm: &R, obj: &R::JsValueAdapterType) -> Self {
         let id = realm.js_cache_add(obj);
         let rti_ref = realm.js_get_runtime_facade_inner();
@@ -50,7 +50,7 @@ impl CachedJsObjectRef2 {
     pub async fn js_get_object<R: JsRuntimeFacadeInner>(
         &self,
         rti: &R,
-    ) -> Result<HashMap<String, JsValueFacade2>, JsError> {
+    ) -> Result<HashMap<String, JsValueFacade>, JsError> {
         let id = self.id;
         let realm_name = self.realm_id.clone();
         rti.js_add_rt_task_to_event_loop(move |rt| {
@@ -60,7 +60,7 @@ impl CachedJsObjectRef2 {
                 let results = realm.js_cache_with(id, |obj| {
                     realm.js_object_traverse(obj, |name, value| {
                         //
-                        Ok((name.to_string(), realm.to_js_value_facade2(value)))
+                        Ok((name.to_string(), realm.to_js_value_facade(value)))
                     })
                 })?;
                 for result in results {
@@ -133,7 +133,7 @@ impl CachedJsObjectRef2 {
     }
 }
 
-impl Drop for CachedJsObjectRef2 {
+impl Drop for CachedJsObjectRef {
     fn drop(&mut self) {
         if let Some(da) = self.drop_action.take() {
             da();
@@ -145,8 +145,8 @@ impl CachedJsPromiseRef {
     pub async fn js_get_promise_result<R: JsRuntimeFacadeInner>(
         &self,
         rti: &R,
-    ) -> Result<Result<JsValueFacade2, JsValueFacade2>, JsError> {
-        let fut: ResolvableFuture<Result<Result<JsValueFacade2, JsValueFacade2>, JsError>> =
+    ) -> Result<Result<JsValueFacade, JsValueFacade>, JsError> {
+        let fut: ResolvableFuture<Result<Result<JsValueFacade, JsValueFacade>, JsError>> =
             ResolvableFuture::new();
         let resolver = fut.get_resolver();
         let resolver1 = resolver.clone();
@@ -159,7 +159,7 @@ impl CachedJsPromiseRef {
                     move |realm, _this, args| {
                         //
                         let resolution = &args[0];
-                        let send_res = match realm.to_js_value_facade2(resolution) {
+                        let send_res = match realm.to_js_value_facade(resolution) {
                             Ok(vf) => resolver1.resolve(Ok(Ok(vf))),
                             Err(conv_err) => resolver1.resolve(Err(conv_err)),
                         };
@@ -174,7 +174,7 @@ impl CachedJsPromiseRef {
                     move |realm, _this, args| {
                         //
                         let rejection = &args[0];
-                        let send_res = match realm.to_js_value_facade2(rejection) {
+                        let send_res = match realm.to_js_value_facade(rejection) {
                             Ok(vf) => resolver2.resolve(Ok(Err(vf))),
                             Err(conv_err) => resolver2.resolve(Err(conv_err)),
                         };
@@ -207,7 +207,7 @@ impl CachedJsArrayRef {
     pub async fn js_get_array<R: JsRuntimeFacadeInner>(
         &self,
         _rti: &R,
-    ) -> Result<Vec<JsValueFacade2>, JsError> {
+    ) -> Result<Vec<JsValueFacade>, JsError> {
         todo!()
     }
 }
@@ -216,14 +216,14 @@ impl CachedJsFunctionRef {
     pub async fn js_invoke_function<R: JsRuntimeFacadeInner>(
         &self,
         _rti: &R,
-        _args: Vec<JsValueFacade2>,
-    ) -> Result<JsValueFacade2, JsError> {
+        _args: Vec<JsValueFacade>,
+    ) -> Result<JsValueFacade, JsError> {
         todo!()
     }
 }
 
 #[allow(clippy::type_complexity)]
-pub enum JsValueFacade2 {
+pub enum JsValueFacade {
     I32 {
         val: i32,
     },
@@ -238,7 +238,7 @@ pub enum JsValueFacade2 {
     },
     JsObject {
         // obj which is a ref to obj in Js
-        cached_object: CachedJsObjectRef2,
+        cached_object: CachedJsObjectRef,
     },
     JsPromise {
         cached_promise: CachedJsPromiseRef,
@@ -251,11 +251,11 @@ pub enum JsValueFacade2 {
     },
     // obj created from rust
     Object {
-        val: HashMap<String, JsValueFacade2>,
+        val: HashMap<String, JsValueFacade>,
     },
     // array created from rust
     Array {
-        val: Vec<JsValueFacade2>,
+        val: Vec<JsValueFacade>,
     },
     // Promise created from rust
     Promise {
@@ -265,15 +265,15 @@ pub enum JsValueFacade2 {
     Function {
         name: String,
         arg_count: u32,
-        func: Arc<Box<dyn Fn(&[JsValueFacade2]) -> Result<JsValueFacade2, JsError> + Send + Sync>>,
+        func: Arc<Box<dyn Fn(&[JsValueFacade]) -> Result<JsValueFacade, JsError> + Send + Sync>>,
     },
     Null,
     Undefined,
 }
 
-impl JsValueFacade2 {
+impl JsValueFacade {
     pub fn new_callback<
-        F: Fn(&[JsValueFacade2]) -> Result<JsValueFacade2, JsError> + Send + Sync + 'static,
+        F: Fn(&[JsValueFacade]) -> Result<JsValueFacade, JsError> + Send + Sync + 'static,
     >(
         callback: F,
     ) -> Self {
@@ -283,37 +283,35 @@ impl JsValueFacade2 {
             func: Arc::new(Box::new(callback)),
         }
     }
-    pub fn new_promise<F: FnOnce() -> Result<JsValueFacade2, JsValueFacade2>>(
-        _resolver: F,
-    ) -> Self {
-        JsValueFacade2::Promise {
+    pub fn new_promise<F: FnOnce() -> Result<JsValueFacade, JsValueFacade>>(_resolver: F) -> Self {
+        JsValueFacade::Promise {
             resolve_handle: Arc::new(()),
         }
     }
     pub fn new_resolvable_promise() -> Self {
-        JsValueFacade2::Promise {
+        JsValueFacade::Promise {
             resolve_handle: Arc::new(()),
         }
     }
     pub fn js_is_null_or_undefined(&self) -> bool {
-        matches!(self, JsValueFacade2::Null | JsValueFacade2::Undefined)
+        matches!(self, JsValueFacade::Null | JsValueFacade::Undefined)
     }
     pub fn js_get_value_type(&self) -> JsValueType {
         match self {
-            JsValueFacade2::I32 { .. } => JsValueType::I32,
-            JsValueFacade2::F64 { .. } => JsValueType::F64,
-            JsValueFacade2::String { .. } => JsValueType::String,
-            JsValueFacade2::Boolean { .. } => JsValueType::Boolean,
-            JsValueFacade2::JsObject { .. } => JsValueType::Object,
-            JsValueFacade2::Null => JsValueType::Null,
-            JsValueFacade2::Undefined => JsValueType::Undefined,
-            JsValueFacade2::Object { .. } => JsValueType::Object,
-            JsValueFacade2::Array { .. } => JsValueType::Array,
-            JsValueFacade2::Promise { .. } => JsValueType::Promise,
-            JsValueFacade2::Function { .. } => JsValueType::Function,
-            JsValueFacade2::JsPromise { .. } => JsValueType::Promise,
-            JsValueFacade2::JsArray { .. } => JsValueType::Array,
-            JsValueFacade2::JsFunction { .. } => JsValueType::Function,
+            JsValueFacade::I32 { .. } => JsValueType::I32,
+            JsValueFacade::F64 { .. } => JsValueType::F64,
+            JsValueFacade::String { .. } => JsValueType::String,
+            JsValueFacade::Boolean { .. } => JsValueType::Boolean,
+            JsValueFacade::JsObject { .. } => JsValueType::Object,
+            JsValueFacade::Null => JsValueType::Null,
+            JsValueFacade::Undefined => JsValueType::Undefined,
+            JsValueFacade::Object { .. } => JsValueType::Object,
+            JsValueFacade::Array { .. } => JsValueType::Array,
+            JsValueFacade::Promise { .. } => JsValueType::Promise,
+            JsValueFacade::Function { .. } => JsValueType::Function,
+            JsValueFacade::JsPromise { .. } => JsValueType::Promise,
+            JsValueFacade::JsArray { .. } => JsValueType::Array,
+            JsValueFacade::JsFunction { .. } => JsValueType::Function,
         }
     }
 }
