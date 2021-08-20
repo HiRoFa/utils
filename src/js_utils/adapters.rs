@@ -25,7 +25,6 @@ pub trait JsRuntimeAdapter {
 pub trait JsRealmAdapter {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
     type JsValueAdapterType: JsValueAdapter + Clone + PartialEq;
-    type JsPromiseAdapterType: JsPromiseAdapter + Clone;
 
     fn js_get_realm_id(&self) -> &str;
 
@@ -326,7 +325,7 @@ pub trait JsRealmAdapter {
     fn js_f64_create(&self, val: f64) -> Result<Self::JsValueAdapterType, JsError>;
 
     // promises
-    fn js_promise_create(&self) -> Result<Box<Self::JsPromiseAdapterType>, JsError>;
+    fn js_promise_create(&self) -> Result<Box<dyn JsPromiseAdapter<Self>>, JsError>;
 
     fn js_promise_add_reactions(
         &self,
@@ -360,21 +359,18 @@ pub trait JsRealmAdapter {
     fn js_json_parse(&self, json_string: &str) -> Result<Self::JsValueAdapterType, JsError>;
 }
 
-pub trait JsPromiseAdapter {
-    type JsRealmAdapterType: JsRealmAdapter;
+pub trait JsPromiseAdapter<R: JsRealmAdapter> {
     fn js_promise_resolve(
         &self,
-        realm: &Self::JsRealmAdapterType,
-        resolution: &<<Self as JsPromiseAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType,
+        realm: &R,
+        resolution: &R::JsValueAdapterType,
     ) -> Result<(), JsError>;
     fn js_promise_reject(
         &self,
-        realm: &Self::JsRealmAdapterType,
-        rejection: &<<Self as JsPromiseAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType,
+        realm: &R,
+        rejection: &R::JsValueAdapterType,
     ) -> Result<(), JsError>;
-    fn js_promise_get_value(
-        &self,
-    ) -> <<Self as JsPromiseAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType;
+    fn js_promise_get_value(&self) -> R::JsValueAdapterType;
 }
 
 pub trait JsValueAdapter {
