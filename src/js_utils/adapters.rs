@@ -2,10 +2,12 @@ use crate::js_utils::adapters::proxies::{JsProxy, JsProxyInstanceId};
 use crate::js_utils::facades::values::{
     CachedJsArrayRef, CachedJsFunctionRef, CachedJsObjectRef, CachedJsPromiseRef, JsValueFacade,
 };
-use crate::js_utils::facades::{JsRuntimeFacade, JsValueType};
+use crate::js_utils::facades::{JsRuntimeFacade, JsRuntimeFacadeInner, JsValueType};
 use crate::js_utils::{JsError, Script};
+use futures::Future;
 use std::sync::Weak;
 
+pub mod promises;
 pub mod proxies;
 
 pub trait JsRuntimeAdapter {
@@ -26,11 +28,13 @@ pub trait JsRealmAdapter {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
     type JsValueAdapterType: JsValueAdapter + Clone + PartialEq;
 
+    // todo add method here to cache/uncache JsPromiseAdapter
+
     fn js_get_realm_id(&self) -> &str;
 
     fn js_get_runtime_facade_inner(
         &self,
-    ) -> Weak<<<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType>;
+    ) -> Weak<<<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType> where Self: 'static;
 
     fn js_get_script_or_module_name(&self) -> Result<String, JsError>;
 
@@ -129,13 +133,14 @@ pub trait JsRealmAdapter {
                 }
                 Ok(obj)
             }
-            JsValueFacade::Promise { resolve_handle: _ } => {
-                let _prom = self.js_promise_create()?;
-                // todo.. give promise a resolvablefut?
-                // .await fut here in helper thread_pool and resolve or reject prom?
-                // add prom to thread_local AutoIdMap?
-                //Ok(prom.js_promise_get_value())
-                self.js_null_create()
+            JsValueFacade::Promise { mut producer } => {
+                if producer.is_some() {
+                    self.js_promise_create_resolving(producer.take().unwrap(), |realm, jsvf| {
+                        realm.from_js_value_facade(jsvf)
+                    })
+                } else {
+                    self.js_null_create()
+                }
             }
             JsValueFacade::Function {
                 name,
@@ -326,6 +331,18 @@ pub trait JsRealmAdapter {
 
     // promises
     fn js_promise_create(&self) -> Result<Box<dyn JsPromiseAdapter<Self>>, JsError>;
+    fn js_promise_create_resolving<P, R: Send + 'static, M>(
+        &self,
+        producer: P,
+        mapper: M,
+    ) -> Result<Self::JsValueAdapterType, JsError>
+    where
+        P: Future<Output = Result<R, String>> + Send + 'static,
+        M: FnOnce(&<<<<<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType, R) -> Result<<<<<<<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType, JsError> + Send + 'static,
+        Self: Sized + 'static,
+    {
+        crate::js_utils::adapters::promises::new_resolving_promise_async(self, producer, mapper)
+    }
 
     fn js_promise_add_reactions(
         &self,
@@ -336,6 +353,10 @@ pub trait JsRealmAdapter {
     ) -> Result<(), JsError>;
 
     // cache
+
+    fn js_promise_cache_add(&self, promise_ref: Box<dyn JsPromiseAdapter<Self>>) -> usize;
+    fn js_promise_cache_consume(&self, id: usize) -> Box<dyn JsPromiseAdapter<Self>>;
+
     fn js_cache_add(&self, object: &Self::JsValueAdapterType) -> i32;
     fn js_cache_dispose(&self, id: i32);
     fn js_cache_with<C, R>(&self, id: i32, consumer: C) -> R
@@ -370,7 +391,7 @@ pub trait JsPromiseAdapter<R: JsRealmAdapter> {
         realm: &R,
         rejection: &R::JsValueAdapterType,
     ) -> Result<(), JsError>;
-    fn js_promise_get_value(&self) -> R::JsValueAdapterType;
+    fn js_promise_get_value(&self, realm: &R) -> R::JsValueAdapterType;
 }
 
 pub trait JsValueAdapter {

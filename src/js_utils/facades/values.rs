@@ -2,7 +2,9 @@ use crate::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};
 use crate::js_utils::facades::{JsRuntimeFacade, JsRuntimeFacadeInner, JsValueType};
 use crate::js_utils::JsError;
 use crate::resolvable_future::ResolvableFuture;
+use futures::Future;
 use std::collections::HashMap;
+use std::pin::Pin;
 use std::sync::Arc;
 
 pub struct CachedJsObjectRef {
@@ -257,9 +259,10 @@ pub enum JsValueFacade {
     Array {
         val: Vec<JsValueFacade>,
     },
-    // Promise created from rust
+    // promise created from rust which will run an async producer
     Promise {
-        resolve_handle: Arc<()>, //todo put JsPromiseAdapter in thread_local_map?
+        producer:
+            Option<Pin<Box<dyn Future<Output = Result<JsValueFacade, String>> + Send + 'static>>>,
     },
     // Function created from rust
     Function {
@@ -300,14 +303,14 @@ impl JsValueFacade {
             func: Arc::new(Box::new(callback)),
         }
     }
-    pub fn new_promise<F: FnOnce() -> Result<JsValueFacade, JsValueFacade>>(_resolver: F) -> Self {
+    /// create a new promise with a producer which will run async in a threadpool
+    pub fn new_promise<T, R, P, M>(producer: P) -> Self
+    where
+        T: JsRealmAdapter,
+        P: Future<Output = Result<JsValueFacade, String>> + Send + 'static,
+    {
         JsValueFacade::Promise {
-            resolve_handle: Arc::new(()),
-        }
-    }
-    pub fn new_resolvable_promise() -> Self {
-        JsValueFacade::Promise {
-            resolve_handle: Arc::new(()),
+            producer: Some(Box::pin(producer)),
         }
     }
     pub fn js_is_null_or_undefined(&self) -> bool {

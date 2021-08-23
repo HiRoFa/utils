@@ -5,6 +5,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Weak;
 
+pub mod async_utils;
 pub mod values;
 
 pub struct JsProxy {}
