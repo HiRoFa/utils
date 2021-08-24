@@ -270,6 +270,9 @@ pub enum JsValueFacade {
         arg_count: u32,
         func: Arc<Box<dyn Fn(&[JsValueFacade]) -> Result<JsValueFacade, JsError> + Send + Sync>>,
     },
+    JsError {
+        val: JsError,
+    },
     Null,
     Undefined,
 }
@@ -332,6 +335,7 @@ impl JsValueFacade {
             JsValueFacade::JsPromise { .. } => JsValueType::Promise,
             JsValueFacade::JsArray { .. } => JsValueType::Array,
             JsValueFacade::JsFunction { .. } => JsValueType::Function,
+            JsValueFacade::JsError { .. } => JsValueType::Error,
         }
     }
     pub fn stringify(&self) -> String {
@@ -382,6 +386,7 @@ impl JsValueFacade {
             JsValueFacade::Function { .. } => "Function".to_string(),
             JsValueFacade::Null => "Null".to_string(),
             JsValueFacade::Undefined => "Undefined".to_string(),
+            JsValueFacade::JsError { val } => format!("{}", val),
         }
     }
 }

@@ -171,4 +171,5 @@ pub enum JsValueType {
     Null,
     Undefined,
     Array,
+    Error,
 }

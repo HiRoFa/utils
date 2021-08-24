@@ -85,6 +85,20 @@ pub trait JsRealmAdapter {
                     cached_object: CachedJsObjectRef::new(self, js_value),
                 },
             },
+            JsValueType::Error => {
+                let name = self
+                    .js_object_get_property(js_value, "name")?
+                    .js_to_string()?;
+                let message = self
+                    .js_object_get_property(js_value, "message")?
+                    .js_to_string()?;
+                let stack = self
+                    .js_object_get_property(js_value, "stack")?
+                    .js_to_string()?;
+                JsValueFacade::JsError {
+                    val: JsError::new(name, message, stack),
+                }
+            }
         };
         Ok(res)
     }
@@ -169,6 +183,9 @@ pub trait JsRealmAdapter {
             }
             JsValueFacade::Null => self.js_null_create(),
             JsValueFacade::Undefined => self.js_undefined_create(),
+            JsValueFacade::JsError { .. } => {
+                todo!()
+            }
         }
     }
 
