@@ -74,6 +74,18 @@ pub struct JsProxy<R: JsRealmAdapter> {
 }
 
 impl<R: JsRealmAdapter> JsProxy<R> {
+    pub fn new(namespace: &'static [&'static str], name: &'static str) -> Self {
+        Self {
+            name,
+            namespace,
+            constructor: None,
+            members: Default::default(),
+            static_members: Default::default(),
+            finalizer: None,
+            event_target: false,
+            static_event_target: false,
+        }
+    }
     pub fn set_constructor<C>(&mut self, constructor: C)
     where
         C: Fn(
