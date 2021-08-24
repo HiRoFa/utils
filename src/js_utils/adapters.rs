@@ -316,6 +316,13 @@ pub trait JsRealmAdapter {
     ) -> Result<Vec<R>, JsError>
     where
         F: Fn(&str, &Self::JsValueAdapterType) -> Result<R, JsError>;
+    fn js_object_traverse_mut<F>(
+        &self,
+        object: &Self::JsValueAdapterType,
+        visitor: F,
+    ) -> Result<(), JsError>
+    where
+        F: FnMut(&str, &Self::JsValueAdapterType) -> Result<(), JsError>;
     // array functions
     fn js_array_get_element(
         &self,
@@ -337,6 +344,13 @@ pub trait JsRealmAdapter {
     ) -> Result<Vec<R>, JsError>
     where
         F: Fn(u32, &Self::JsValueAdapterType) -> Result<R, JsError>;
+    fn js_array_traverse_mut<F>(
+        &self,
+        array: &Self::JsValueAdapterType,
+        visitor: F,
+    ) -> Result<(), JsError>
+    where
+        F: FnMut(u32, &Self::JsValueAdapterType) -> Result<(), JsError>;
     // primitives
 
     fn js_null_create(&self) -> Result<Self::JsValueAdapterType, JsError>;
