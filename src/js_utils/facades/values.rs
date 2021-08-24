@@ -334,4 +334,54 @@ impl JsValueFacade {
             JsValueFacade::JsFunction { .. } => JsValueType::Function,
         }
     }
+    pub fn stringify(&self) -> String {
+        match self {
+            JsValueFacade::I32 { val } => {
+                format!("I32: {}", val)
+            }
+            JsValueFacade::F64 { val } => {
+                format!("F64: {}", val)
+            }
+            JsValueFacade::String { val } => {
+                format!("String: {}", val)
+            }
+            JsValueFacade::Boolean { val } => {
+                format!("Boolean: {}", val)
+            }
+            JsValueFacade::JsObject { cached_object } => {
+                format!(
+                    "JsObject: [{}.{}]",
+                    cached_object.realm_id, cached_object.id
+                )
+            }
+            JsValueFacade::JsPromise { cached_promise } => {
+                format!(
+                    "JsPromise: [{}.{}]",
+                    cached_promise.cached_object.realm_id, cached_promise.cached_object.id
+                )
+            }
+            JsValueFacade::JsArray { cached_array } => {
+                format!(
+                    "JsArray: [{}.{}]",
+                    cached_array.cached_object.realm_id, cached_array.cached_object.id
+                )
+            }
+            JsValueFacade::JsFunction { cached_function } => {
+                format!(
+                    "JsFunction: [{}.{}]",
+                    cached_function.cached_object.realm_id, cached_function.cached_object.id
+                )
+            }
+            JsValueFacade::Object { val } => {
+                format!("Object: [len={}]", val.keys().len())
+            }
+            JsValueFacade::Array { val } => {
+                format!("Array: [len={}]", val.len())
+            }
+            JsValueFacade::Promise { .. } => "Promise".to_string(),
+            JsValueFacade::Function { .. } => "Function".to_string(),
+            JsValueFacade::Null => "Null".to_string(),
+            JsValueFacade::Undefined => "Undefined".to_string(),
+        }
+    }
 }
