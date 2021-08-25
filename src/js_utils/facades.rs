@@ -1,5 +1,6 @@
 use crate::js_utils::adapters::JsRuntimeAdapter;
 use crate::js_utils::facades::values::JsValueFacade;
+use crate::js_utils::modules::{NativeModuleLoader, ScriptModuleLoader};
 use crate::js_utils::{JsError, Script, ScriptPreProcessor};
 use std::future::Future;
 use std::pin::Pin;
@@ -45,6 +46,20 @@ pub trait JsRuntimeBuilder {
         &mut self,
         preprocessor: S,
     ) -> &mut Self;
+    fn js_script_module_loader<S: ScriptModuleLoader + Send + 'static>(
+        &mut self,
+        module_loader: S,
+    ) -> &mut Self;
+    fn js_native_module_loader<
+        S: NativeModuleLoader<<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType>
+            + Send
+            + 'static,
+    >(
+        &mut self,
+        module_loader: S,
+    ) -> &mut Self
+    where
+        Self: Sized;
 }
 /// The JsRuntime facade is the main entry point to the JavaScript engine, it is thread safe and
 /// handles the logic for transferring data from and to the JsRuntimeAdapter

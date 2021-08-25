@@ -7,6 +7,7 @@ use std::fmt::{Error, Formatter};
 
 pub mod adapters;
 pub mod facades;
+pub mod modules;
 
 pub trait ScriptPreProcessor {
     fn process(&self, script: &mut Script) -> Result<(), JsError>;
