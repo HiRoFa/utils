@@ -306,6 +306,19 @@ impl JsValueFacade {
             func: Arc::new(Box::new(callback)),
         }
     }
+    pub fn new_function<
+        F: Fn(&[JsValueFacade]) -> Result<JsValueFacade, JsError> + Send + Sync + 'static,
+    >(
+        name: &str,
+        function: F,
+        arg_count: u32,
+    ) -> Self {
+        Self::Function {
+            name: name.to_string(),
+            arg_count,
+            func: Arc::new(Box::new(function)),
+        }
+    }
     /// create a new promise with a producer which will run async in a threadpool
     pub fn new_promise<T, R, P, M>(producer: P) -> Self
     where
