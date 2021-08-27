@@ -222,6 +222,13 @@ impl CachedJsFunctionRef {
     ) -> Result<JsValueFacade, JsError> {
         todo!()
     }
+    pub fn js_invoke_function_sync<R: JsRuntimeFacadeInner>(
+        &self,
+        _rti: &R,
+        _args: Vec<JsValueFacade>,
+    ) -> Result<JsValueFacade, JsError> {
+        todo!()
+    }
 }
 
 #[allow(clippy::type_complexity)]
