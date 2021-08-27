@@ -86,7 +86,7 @@ impl<R: JsRealmAdapter> JsProxy<R> {
             static_event_target: false,
         }
     }
-    pub fn set_constructor<C>(&mut self, constructor: C)
+    pub fn set_constructor<C>(mut self, constructor: C) -> Self
     where
         C: Fn(
                 &R::JsRuntimeAdapterType,
@@ -98,15 +98,17 @@ impl<R: JsRealmAdapter> JsProxy<R> {
     {
         assert!(self.constructor.is_none());
         self.constructor.replace(Box::new(constructor));
+        self
     }
-    pub fn set_finalizer<F>(&mut self, finalizer: F)
+    pub fn set_finalizer<F>(mut self, finalizer: F) -> Self
     where
         F: Fn(&<R as JsRealmAdapter>::JsRuntimeAdapterType, &R, &JsProxyInstanceId) + 'static,
     {
         assert!(self.finalizer.is_none());
         self.finalizer.replace(Box::new(finalizer));
+        self
     }
-    pub fn add_method<M>(&mut self, name: &'static str, method: M)
+    pub fn add_method<M>(mut self, name: &'static str, method: M) -> Self
     where
         M: Fn(
                 &R::JsRuntimeAdapterType,
@@ -123,8 +125,9 @@ impl<R: JsRealmAdapter> JsProxy<R> {
                 method: Box::new(method),
             },
         );
+        self
     }
-    pub fn add_getter<G, S>(&mut self, name: &'static str, getter: G)
+    pub fn add_getter<G, S>(self, name: &'static str, getter: G) -> Self
     where
         G: Fn(
                 &R::JsRuntimeAdapterType,
@@ -137,7 +140,7 @@ impl<R: JsRealmAdapter> JsProxy<R> {
             Err(JsError::new_str("Cannot update read-only member"))
         })
     }
-    pub fn add_getter_setter<G, S>(&mut self, name: &'static str, getter: G, setter: S)
+    pub fn add_getter_setter<G, S>(mut self, name: &'static str, getter: G, setter: S) -> Self
     where
         G: Fn(
                 &R::JsRuntimeAdapterType,
@@ -161,8 +164,9 @@ impl<R: JsRealmAdapter> JsProxy<R> {
                 set: Box::new(setter),
             },
         );
+        self
     }
-    pub fn add_static_method<M>(&mut self, name: &'static str, method: M)
+    pub fn add_static_method<M>(mut self, name: &'static str, method: M) -> Self
     where
         M: Fn(
                 &R::JsRuntimeAdapterType,
@@ -178,8 +182,9 @@ impl<R: JsRealmAdapter> JsProxy<R> {
                 method: Box::new(method),
             },
         );
+        self
     }
-    pub fn add_static_getter<G, S>(&mut self, name: &'static str, getter: G)
+    pub fn add_static_getter<G, S>(self, name: &'static str, getter: G) -> Self
     where
         G: Fn(
                 &R::JsRuntimeAdapterType,
@@ -191,7 +196,12 @@ impl<R: JsRealmAdapter> JsProxy<R> {
             Err(JsError::new_str("Cannot update read-only member"))
         })
     }
-    pub fn add_static_getter_setter<G, S>(&mut self, name: &'static str, getter: G, setter: S)
+    pub fn add_static_getter_setter<G, S>(
+        mut self,
+        name: &'static str,
+        getter: G,
+        setter: S,
+    ) -> Self
     where
         G: Fn(
                 &R::JsRuntimeAdapterType,
@@ -213,12 +223,13 @@ impl<R: JsRealmAdapter> JsProxy<R> {
                 set: Box::new(setter),
             },
         );
+        self
     }
-    pub fn set_event_target(&mut self, is_event_target: bool) -> &mut Self {
+    pub fn set_event_target(mut self, is_event_target: bool) -> Self {
         self.event_target = is_event_target;
         self
     }
-    pub fn set_static_event_target(&mut self, is_static_event_target: bool) -> &mut Self {
+    pub fn set_static_event_target(mut self, is_static_event_target: bool) -> Self {
         self.static_event_target = is_static_event_target;
         self
     }
