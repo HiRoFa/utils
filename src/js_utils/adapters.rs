@@ -448,6 +448,9 @@ pub trait JsValueAdapter {
     fn js_is_i32(&self) -> bool {
         self.js_get_type() == JsValueType::I32
     }
+    fn js_is_f64(&self) -> bool {
+        self.js_get_type() == JsValueType::F64
+    }
     fn js_is_bool(&self) -> bool {
         self.js_get_type() == JsValueType::Boolean
     }
