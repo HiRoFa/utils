@@ -5,13 +5,13 @@ use std::collections::HashMap;
 pub type JsProxyConstructor<R> = dyn Fn(
     &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,
-    &JsProxyInstanceId,
+    JsProxyInstanceId,
     &[<R as JsRealmAdapter>::JsValueAdapterType],
 ) -> Result<(), JsError>;
 pub type JsMethod<R> = dyn Fn(
     &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,
-    &JsProxyInstanceId,
+    JsProxyInstanceId,
     &[<R as JsRealmAdapter>::JsValueAdapterType],
 ) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>;
 pub type JsStaticMethod<R> = dyn Fn(
@@ -21,16 +21,16 @@ pub type JsStaticMethod<R> = dyn Fn(
 ) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>;
 
 pub type JsFinalizer<R> =
-    dyn Fn(&<R as JsRealmAdapter>::JsRuntimeAdapterType, &R, &JsProxyInstanceId);
+    dyn Fn(&<R as JsRealmAdapter>::JsRuntimeAdapterType, &R, JsProxyInstanceId);
 pub type JsGetter<R> = dyn Fn(
     &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,
-    &JsProxyInstanceId,
+    JsProxyInstanceId,
 ) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>;
 pub type JsSetter<R> = dyn Fn(
     &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,
-    &JsProxyInstanceId,
+    JsProxyInstanceId,
     &<R as JsRealmAdapter>::JsValueAdapterType,
 ) -> Result<(), JsError>;
 pub type JsStaticGetter<R> = dyn Fn(
@@ -91,7 +91,7 @@ impl<R: JsRealmAdapter> JsProxy<R> {
         C: Fn(
                 &R::JsRuntimeAdapterType,
                 &R,
-                &JsProxyInstanceId,
+                JsProxyInstanceId,
                 &[R::JsValueAdapterType],
             ) -> Result<(), JsError>
             + 'static,
@@ -102,7 +102,7 @@ impl<R: JsRealmAdapter> JsProxy<R> {
     }
     pub fn set_finalizer<F>(mut self, finalizer: F) -> Self
     where
-        F: Fn(&<R as JsRealmAdapter>::JsRuntimeAdapterType, &R, &JsProxyInstanceId) + 'static,
+        F: Fn(&<R as JsRealmAdapter>::JsRuntimeAdapterType, &R, JsProxyInstanceId) + 'static,
     {
         assert!(self.finalizer.is_none());
         self.finalizer.replace(Box::new(finalizer));
@@ -113,7 +113,7 @@ impl<R: JsRealmAdapter> JsProxy<R> {
         M: Fn(
                 &R::JsRuntimeAdapterType,
                 &R,
-                &JsProxyInstanceId,
+                JsProxyInstanceId,
                 &[R::JsValueAdapterType],
             ) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>
             + 'static,
@@ -132,7 +132,7 @@ impl<R: JsRealmAdapter> JsProxy<R> {
         G: Fn(
                 &R::JsRuntimeAdapterType,
                 &R,
-                &JsProxyInstanceId,
+                JsProxyInstanceId,
             ) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>
             + 'static,
     {
@@ -145,13 +145,13 @@ impl<R: JsRealmAdapter> JsProxy<R> {
         G: Fn(
                 &R::JsRuntimeAdapterType,
                 &R,
-                &JsProxyInstanceId,
+                JsProxyInstanceId,
             ) -> Result<<R as JsRealmAdapter>::JsValueAdapterType, JsError>
             + 'static,
         S: Fn(
                 &R::JsRuntimeAdapterType,
                 &R,
-                &JsProxyInstanceId,
+                JsProxyInstanceId,
                 &<R as JsRealmAdapter>::JsValueAdapterType,
             ) -> Result<(), JsError>
             + 'static,
