@@ -150,9 +150,10 @@ pub trait JsRealmAdapter {
             JsValueFacade::Promise { producer } => {
                 let producer = &mut *producer.lock().unwrap();
                 if producer.is_some() {
-                    self.js_promise_create_resolving(producer.take().unwrap(), |realm, jsvf| {
-                        realm.from_js_value_facade(jsvf)
-                    })
+                    self.js_promise_create_resolving_async(
+                        producer.take().unwrap(),
+                        |realm, jsvf| realm.from_js_value_facade(jsvf),
+                    )
                 } else {
                     self.js_null_create()
                 }
@@ -363,7 +364,7 @@ pub trait JsRealmAdapter {
 
     // promises
     fn js_promise_create(&self) -> Result<Box<dyn JsPromiseAdapter<Self>>, JsError>;
-    fn js_promise_create_resolving<P, R: Send + 'static, M>(
+    fn js_promise_create_resolving_async<P, R: Send + 'static, M>(
         &self,
         producer: P,
         mapper: M,
@@ -374,6 +375,18 @@ pub trait JsRealmAdapter {
         Self: Sized + 'static,
     {
         crate::js_utils::adapters::promises::new_resolving_promise_async(self, producer, mapper)
+    }
+    fn js_promise_create_resolving<P, R: Send + 'static, M>(
+        &self,
+        producer: P,
+        mapper: M,
+    ) -> Result<Self::JsValueAdapterType, JsError>
+        where
+            P: FnOnce() -> Result<R, JsError> + Send + 'static,
+            M: FnOnce(&<<<<<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType, R) -> Result<<<<<<<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType, JsError> + Send + 'static,
+            Self: Sized + 'static,
+    {
+        crate::js_utils::adapters::promises::new_resolving_promise(self, producer, mapper)
     }
 
     fn js_promise_add_reactions(

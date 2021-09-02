@@ -13,7 +13,7 @@ pub fn new_resolving_promise<P, R, M, T>(
 where
     T: JsRealmAdapter + 'static,
     R: Send + 'static,
-    P: FnOnce() -> Result<R, String> + Send + 'static,
+    P: FnOnce() -> Result<R, JsError> + Send + 'static,
     M: FnOnce(&<<<<<<T as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType, R) -> Result<<<<<<<<T as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType, JsError> + Send + 'static,
 {
     // create promise
@@ -66,7 +66,7 @@ where
                         Err(err) => {
                             // todo use error:new_error(err)
                             let err_ref = realm
-                                .js_string_create(err.as_str())
+                                .js_string_create(format!("{}", err).as_str())
                                 .ok()
                                 .expect("could not create str");
                             prom_ref
