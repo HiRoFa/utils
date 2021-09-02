@@ -445,6 +445,31 @@ pub trait JsValueAdapter {
     /// js_get_type returns the rust type of the value (more extensive list than javascript typeof)
     fn js_get_type(&self) -> JsValueType;
 
+    fn js_is_i32(&self) -> bool {
+        self.js_get_type() == JsValueType::I32
+    }
+    fn js_is_bool(&self) -> bool {
+        self.js_get_type() == JsValueType::Boolean
+    }
+    fn js_is_string(&self) -> bool {
+        self.js_get_type() == JsValueType::String
+    }
+    fn js_is_object(&self) -> bool {
+        self.js_get_type() == JsValueType::Object
+    }
+    fn js_is_function(&self) -> bool {
+        self.js_get_type() == JsValueType::Function
+    }
+    fn js_is_array(&self) -> bool {
+        self.js_get_type() == JsValueType::Array
+    }
+    fn js_is_error(&self) -> bool {
+        self.js_get_type() == JsValueType::Error
+    }
+    fn js_is_promise(&self) -> bool {
+        self.js_get_type() == JsValueType::Promise
+    }
+
     fn js_is_null_or_undefined(&self) -> bool {
         self.js_get_type() == JsValueType::Null || self.js_get_type() == JsValueType::Undefined
     }
