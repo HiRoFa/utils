@@ -271,7 +271,7 @@ pub enum JsValueFacade {
     // promise created from rust which will run an async producer
     Promise {
         producer: Mutex<
-            Option<Pin<Box<dyn Future<Output = Result<JsValueFacade, String>> + Send + 'static>>>,
+            Option<Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>> + Send + 'static>>>,
         >,
     },
     // Function created from rust
@@ -333,7 +333,7 @@ impl JsValueFacade {
     pub fn new_promise<T, R, P, M>(producer: P) -> Self
     where
         T: JsRealmAdapter,
-        P: Future<Output = Result<JsValueFacade, String>> + Send + 'static,
+        P: Future<Output = Result<JsValueFacade, JsError>> + Send + 'static,
     {
         JsValueFacade::Promise {
             producer: Mutex::new(Some(Box::pin(producer))),
