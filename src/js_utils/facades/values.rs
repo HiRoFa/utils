@@ -339,10 +339,54 @@ impl JsValueFacade {
             producer: Mutex::new(Some(Box::pin(producer))),
         }
     }
-    pub fn js_is_null_or_undefined(&self) -> bool {
+    pub fn is_i32(&self) -> bool {
+        matches!(self, JsValueFacade::I32 { .. })
+    }
+    pub fn is_f64(&self) -> bool {
+        matches!(self, JsValueFacade::F64 { .. })
+    }
+    pub fn is_bool(&self) -> bool {
+        matches!(self, JsValueFacade::Boolean { .. })
+    }
+    pub fn is_string(&self) -> bool {
+        matches!(self, JsValueFacade::String { .. })
+    }
+    pub fn get_i32(&self) -> i32 {
+        match self {
+            JsValueFacade::I32 { val } => *val,
+            _ => {
+                panic!("Not an i32");
+            }
+        }
+    }
+    pub fn get_f64(&self) -> f64 {
+        match self {
+            JsValueFacade::F64 { val } => *val,
+            _ => {
+                panic!("Not an f64");
+            }
+        }
+    }
+    pub fn get_bool(&self) -> bool {
+        match self {
+            JsValueFacade::Boolean { val } => *val,
+            _ => {
+                panic!("Not a boolean");
+            }
+        }
+    }
+    pub fn get_str(&self) -> &str {
+        match self {
+            JsValueFacade::String { val } => val.as_str(),
+            _ => {
+                panic!("Not a string");
+            }
+        }
+    }
+    pub fn is_null_or_undefined(&self) -> bool {
         matches!(self, JsValueFacade::Null | JsValueFacade::Undefined)
     }
-    pub fn js_get_value_type(&self) -> JsValueType {
+    pub fn get_value_type(&self) -> JsValueType {
         match self {
             JsValueFacade::I32 { .. } => JsValueType::I32,
             JsValueFacade::F64 { .. } => JsValueType::F64,
