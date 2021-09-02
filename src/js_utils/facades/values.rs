@@ -5,12 +5,12 @@ use crate::resolvable_future::ResolvableFuture;
 use futures::Future;
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 pub struct CachedJsObjectRef {
     pub(crate) id: i32,
     realm_id: String,
-    drop_action: Option<Box<dyn FnOnce() + Send>>,
+    drop_action: Mutex<Option<Box<dyn FnOnce() + Send>>>,
 }
 
 pub struct CachedJsPromiseRef {
@@ -46,7 +46,7 @@ impl CachedJsObjectRef {
         Self {
             id,
             realm_id: realm_name,
-            drop_action: Some(Box::new(drop_action)),
+            drop_action: Mutex::new(Some(Box::new(drop_action))),
         }
     }
     pub async fn js_get_object<R: JsRuntimeFacadeInner>(
@@ -137,7 +137,8 @@ impl CachedJsObjectRef {
 
 impl Drop for CachedJsObjectRef {
     fn drop(&mut self) {
-        if let Some(da) = self.drop_action.take() {
+        let lck = &mut *self.drop_action.lock().unwrap();
+        if let Some(da) = lck.take() {
             da();
         }
     }
@@ -233,6 +234,7 @@ impl CachedJsFunctionRef {
 
 #[allow(clippy::type_complexity)]
 pub enum JsValueFacade {
+    // todo new proxy instance
     I32 {
         val: i32,
     },
@@ -268,8 +270,9 @@ pub enum JsValueFacade {
     },
     // promise created from rust which will run an async producer
     Promise {
-        producer:
+        producer: Mutex<
             Option<Pin<Box<dyn Future<Output = Result<JsValueFacade, String>> + Send + 'static>>>,
+        >,
     },
     // Function created from rust
     Function {
@@ -333,7 +336,7 @@ impl JsValueFacade {
         P: Future<Output = Result<JsValueFacade, String>> + Send + 'static,
     {
         JsValueFacade::Promise {
-            producer: Some(Box::pin(producer)),
+            producer: Mutex::new(Some(Box::pin(producer))),
         }
     }
     pub fn js_is_null_or_undefined(&self) -> bool {
@@ -408,5 +411,17 @@ impl JsValueFacade {
             JsValueFacade::Undefined => "Undefined".to_string(),
             JsValueFacade::JsError { val } => format!("{}", val),
         }
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::js_utils::facades::values::JsValueFacade;
+
+    #[test]
+    fn test_jsvf() {
+        fn test<A: Send + Sync>(_a: A) {}
+
+        test(JsValueFacade::Null);
     }
 }

@@ -147,7 +147,8 @@ pub trait JsRealmAdapter {
                 }
                 Ok(obj)
             }
-            JsValueFacade::Promise { mut producer } => {
+            JsValueFacade::Promise { producer } => {
+                let producer = &mut *producer.lock().unwrap();
                 if producer.is_some() {
                     self.js_promise_create_resolving(producer.take().unwrap(), |realm, jsvf| {
                         realm.from_js_value_facade(jsvf)
