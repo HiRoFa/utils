@@ -39,25 +39,25 @@ pub trait JsRuntimeBuilder {
     fn js_runtime_init_hook<
         H: FnOnce(&Self::JsRuntimeFacadeType) -> Result<(), JsError> + Send + 'static,
     >(
-        &mut self,
+        self,
         hook: H,
-    ) -> &mut Self;
+    ) -> Self;
     fn js_script_pre_processor<S: ScriptPreProcessor + Send + 'static>(
-        &mut self,
+        self,
         preprocessor: S,
-    ) -> &mut Self;
+    ) -> Self;
     fn js_script_module_loader<S: ScriptModuleLoader + Send + 'static>(
-        &mut self,
+        self,
         module_loader: S,
-    ) -> &mut Self;
+    ) -> Self;
     fn js_native_module_loader<
         S: NativeModuleLoader<<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType>
             + Send
             + 'static,
     >(
-        &mut self,
+        self,
         module_loader: S,
-    ) -> &mut Self
+    ) -> Self
     where
         Self: Sized;
 }
