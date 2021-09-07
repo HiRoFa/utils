@@ -80,6 +80,13 @@ pub trait JsRuntimeFacade {
         &self,
         consumer: C,
     ) -> R;
+    fn js_loop_sync_mut<
+        R: Send + 'static,
+        C: FnOnce(&mut Self::JsRuntimeAdapterType) -> R + Send + 'static,
+    >(
+        &self,
+        consumer: C,
+    ) -> R;
     fn js_loop<R: Send + 'static, C: FnOnce(&Self::JsRuntimeAdapterType) -> R + Send + 'static>(
         &self,
         consumer: C,
