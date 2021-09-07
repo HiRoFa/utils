@@ -16,10 +16,10 @@ pub trait JsRuntimeAdapter {
 
     fn js_load_module_script(&self, ref_path: &str, path: &str) -> Option<Script>;
 
-    fn js_create_realm(&self, id: &str) -> Result<&Self::JsRealmAdapterType, JsError>;
+    fn js_create_realm(&mut self, id: &str) -> Result<&Self::JsRealmAdapterType, JsError>;
     fn js_get_realm(&self, id: &str) -> Option<&Self::JsRealmAdapterType>;
     fn js_get_main_realm(&self) -> &Self::JsRealmAdapterType;
-    fn js_add_realm_init_hook<H>(&self, hook: H) -> Result<(), JsError>
+    fn js_add_realm_init_hook<H>(&mut self, hook: H) -> Result<(), JsError>
     where
         H: Fn(&Self, &Self::JsRealmAdapterType) -> Result<(), JsError> + 'static;
 }
