@@ -136,6 +136,17 @@ pub trait JsRuntimeFacade {
         script: Script,
     ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>>;
 
+    /// eval a script, please note that eval should not be used for production code, you should always
+    /// use modules or functions and invoke them
+    /// eval will always need to parse script and some engines like StarLight even require a different syntax (return(1); vs (1);)
+    /// If None is passed as realm_name the default Realm wil be used
+    #[allow(clippy::type_complexity)]
+    fn js_eval_module(
+        &self,
+        realm_name: Option<&str>,
+        script: Script,
+    ) -> Pin<Box<dyn Future<Output = Result<(), JsError>>>>;
+
     // function methods
     /// Invoke a function and block until the function is done
     /// If None is passed as realm_name the default Realm wil be used
