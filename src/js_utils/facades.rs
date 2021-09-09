@@ -13,6 +13,7 @@ pub struct JsProxy {}
 
 pub trait JsRuntimeFacadeInner {
     type JsRuntimeFacadeType: JsRuntimeFacade;
+    /// run a closure in the EventLoop with a &JsRuntimeAdapter as only param and await the result blocking
     fn js_exe_rt_task_in_event_loop<
         R: Send + 'static,
         J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) -> R + Send + 'static,
@@ -20,6 +21,7 @@ pub trait JsRuntimeFacadeInner {
         &self,
         task: J,
     ) -> R;
+    /// run a closure in the EventLoop with a &JsRuntimeAdapter as only param and return a future which will fulfill after the closure has been called
     fn js_add_rt_task_to_event_loop<
         R: Send + 'static,
         J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) -> R + Send + 'static,
@@ -27,6 +29,7 @@ pub trait JsRuntimeFacadeInner {
         &self,
         task: J,
     ) -> Pin<Box<dyn Future<Output = R>>>;
+    /// run a closure in the EventLoop with a &JsRuntimeAdapter as only param
     fn js_add_rt_task_to_event_loop_void<J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) + Send + 'static>(
         &self,
         task: J,
@@ -35,21 +38,26 @@ pub trait JsRuntimeFacadeInner {
 
 pub trait JsRuntimeBuilder {
     type JsRuntimeFacadeType: JsRuntimeFacade;
+    /// construct a JsRuntimeFacade based on this builders options
     fn js_build(self) -> Self::JsRuntimeFacadeType;
+    /// add a runtime init hook, this closure will be invoked when a JsRuntimeFacade is constructed (e.g. builder.build is called)
     fn js_runtime_init_hook<
         H: FnOnce(&Self::JsRuntimeFacadeType) -> Result<(), JsError> + Send + 'static,
     >(
         self,
         hook: H,
     ) -> Self;
+    /// add a script preprocessor
     fn js_script_pre_processor<S: ScriptPreProcessor + Send + 'static>(
         self,
         preprocessor: S,
     ) -> Self;
+    /// add a module loader
     fn js_script_module_loader<S: ScriptModuleLoader + Send + 'static>(
         self,
         module_loader: S,
     ) -> Self;
+    /// add a native module loader (e.g. with proxyclasses instead of a script)
     fn js_native_module_loader<
         S: NativeModuleLoader<<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType>
             + Send
@@ -132,7 +140,7 @@ pub trait JsRuntimeFacade {
         consumer: C,
     );
 
-    /// eval a script, please note that eval should not be used for production code, you should always
+    /// evaluate a script, please note that eval should not be used for production code, you should always
     /// use modules or functions and invoke them
     /// eval will always need to parse script and some engines like StarLight even require a different syntax (return(1); vs (1);)
     /// If None is passed as realm_name the default Realm wil be used
@@ -178,6 +186,7 @@ pub trait JsRuntimeFacade {
     ) -> Pin<Box<dyn Future<Output = Result<JsValueFacade, JsError>>>>;
 
     /// Invoke a function without waiting for a result
+    /// This method may be used instead of js_function_invoke when you don't want to block_on the future or can't .await it
     /// If None is passed as realm_name the default Realm wil be used
     fn js_function_invoke_void(
         &self,

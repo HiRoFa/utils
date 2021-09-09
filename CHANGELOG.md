@@ -1,4 +1,8 @@
-# 0.2.2 (WiP) 
+# 0.3 (WiP)
+
+* bumped version for publish
+
+# 0.2.2 
 
 * small optimization to add_void in EventLoop
 * added js_get_script_or_module_name to JsRealmAdapter
