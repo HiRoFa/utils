@@ -57,7 +57,7 @@ pub trait JsRuntimeBuilder {
         self,
         module_loader: S,
     ) -> Self;
-    /// add a native module loader (e.g. with proxyclasses instead of a script)
+    /// add a native module loader (e.g. with proxy classes instead of a script)
     fn js_native_module_loader<
         S: NativeModuleLoader<<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType>
             + Send
@@ -75,12 +75,19 @@ pub trait JsRuntimeFacade {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
     type JsRuntimeFacadeInnerType: JsRuntimeFacadeInner + Send + Sync;
 
+    /// obtain a Weak reference to the JsRuntimeFacadeInner, this is often used to add jobs to the EventLoop from async tasks
     fn js_get_runtime_facade_inner(&self) -> Weak<Self::JsRuntimeFacadeInnerType>;
 
+    /// create a new JavaScript realm or context
     fn js_realm_create(&mut self, name: &str) -> Result<(), JsError>;
+
+    /// remove a JavaScript realm or context
     fn js_realm_destroy(&mut self, name: &str) -> Result<(), JsError>;
+
+    /// check if a realm is present
     fn js_realm_has(&mut self, name: &str) -> Result<bool, JsError>;
 
+    /// util method to add a job to the EventLoop, usually this is passed to the JsRuntimeFacadeInner.js_loop_sync
     fn js_loop_sync<
         R: Send + 'static,
         C: FnOnce(&Self::JsRuntimeAdapterType) -> R + Send + 'static,
@@ -88,6 +95,8 @@ pub trait JsRuntimeFacade {
         &self,
         consumer: C,
     ) -> R;
+
+    /// util method to add a job to the EventLoop, usually this is passed to the JsRuntimeFacadeInner.js_loop_sync
     fn js_loop_sync_mut<
         R: Send + 'static,
         C: FnOnce(&mut Self::JsRuntimeAdapterType) -> R + Send + 'static,
@@ -95,14 +104,16 @@ pub trait JsRuntimeFacade {
         &self,
         consumer: C,
     ) -> R;
+    /// util method to add a job to the EventLoop, usually this is passed to the JsRuntimeFacadeInner.js_loop_sync
     fn js_loop<R: Send + 'static, C: FnOnce(&Self::JsRuntimeAdapterType) -> R + Send + 'static>(
         &self,
         consumer: C,
     ) -> Pin<Box<dyn Future<Output = R> + Send>>;
+    /// util method to add a job to the EventLoop, usually this is passed to the JsRuntimeFacadeInner.js_loop_void
     fn js_loop_void<C: FnOnce(&Self::JsRuntimeAdapterType) + Send + 'static>(&self, consumer: C);
 
     // realm jobs
-
+    /// util method to add a job to the EventLoop, usually this is passed to the JsRuntimeFacadeInner.js_loop_realm_sync
     fn js_loop_realm_sync<
         R: Send + 'static,
         C: FnOnce(
@@ -115,7 +126,7 @@ pub trait JsRuntimeFacade {
         realm_name: Option<&str>,
         consumer: C,
     ) -> R;
-
+    /// util method to add a job to the EventLoop, usually this is passed to the JsRuntimeFacadeInner.js_loop_realm
     fn js_loop_realm<
         R: Send + 'static,
         C: FnOnce(
@@ -127,7 +138,7 @@ pub trait JsRuntimeFacade {
         realm_name: Option<&str>,
         consumer: C,
     ) -> Pin<Box<dyn Future<Output = R>>>;
-
+    /// util method to add a job to the EventLoop, usually this is passed to the JsRuntimeFacadeInner.js_loop_realm_void
     fn js_loop_realm_void<
         C: FnOnce(
                 &Self::JsRuntimeAdapterType,
@@ -143,7 +154,7 @@ pub trait JsRuntimeFacade {
     /// evaluate a script, please note that eval should not be used for production code, you should always
     /// use modules or functions and invoke them
     /// eval will always need to parse script and some engines like StarLight even require a different syntax (return(1); vs (1);)
-    /// If None is passed as realm_name the default Realm wil be used
+    /// If None is passed as realm_name the main Realm wil be used
     #[allow(clippy::type_complexity)]
     fn js_eval(
         &self,
@@ -154,7 +165,7 @@ pub trait JsRuntimeFacade {
     /// eval a script, please note that eval should not be used for production code, you should always
     /// use modules or functions and invoke them
     /// eval will always need to parse script and some engines like StarLight even require a different syntax (return(1); vs (1);)
-    /// If None is passed as realm_name the default Realm wil be used
+    /// If None is passed as realm_name the main Realm wil be used
     #[allow(clippy::type_complexity)]
     fn js_eval_module(
         &self,
@@ -164,7 +175,7 @@ pub trait JsRuntimeFacade {
 
     // function methods
     /// Invoke a function and block until the function is done
-    /// If None is passed as realm_name the default Realm wil be used
+    /// If None is passed as realm_name the main Realm wil be used
     fn js_function_invoke_sync(
         &self,
         realm_name: Option<&str>,
@@ -175,7 +186,7 @@ pub trait JsRuntimeFacade {
 
     /// Invoke a function
     /// this returns a Future which will fulfill when the function is done
-    /// If None is passed as realm_name the default Realm wil be used
+    /// If None is passed as realm_name the main Realm wil be used
     #[allow(clippy::type_complexity)]
     fn js_function_invoke(
         &self,
@@ -187,7 +198,7 @@ pub trait JsRuntimeFacade {
 
     /// Invoke a function without waiting for a result
     /// This method may be used instead of js_function_invoke when you don't want to block_on the future or can't .await it
-    /// If None is passed as realm_name the default Realm wil be used
+    /// If None is passed as realm_name the main Realm wil be used
     fn js_function_invoke_void(
         &self,
         realm_name: Option<&str>,
@@ -197,8 +208,7 @@ pub trait JsRuntimeFacade {
     );
 }
 
-/// The JsValueFacade is a Send-able representation of a variable in the Script engine
-
+/// the JsValueType represents the type of value for a JSValue
 #[derive(PartialEq, Copy, Clone)]
 pub enum JsValueType {
     I32,

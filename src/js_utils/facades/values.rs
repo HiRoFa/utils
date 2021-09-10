@@ -232,6 +232,7 @@ impl CachedJsFunctionRef {
     }
 }
 
+/// The JsValueFacade is a Send-able representation of a value in the Script engine
 #[allow(clippy::type_complexity)]
 pub enum JsValueFacade {
     // todo new proxy instance
