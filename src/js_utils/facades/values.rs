@@ -1,3 +1,4 @@
+use crate::js_utils::adapters::proxies::JsProxyInstanceId;
 use crate::js_utils::adapters::{JsRealmAdapter, JsRuntimeAdapter};
 use crate::js_utils::facades::{JsRuntimeFacade, JsRuntimeFacadeInner, JsValueType};
 use crate::js_utils::JsError;
@@ -284,6 +285,11 @@ pub enum JsValueFacade {
     JsError {
         val: JsError,
     },
+    ProxyInstance {
+        namespace: &'static [&'static str],
+        class_name: &'static str,
+        instance_id: JsProxyInstanceId,
+    },
     Null,
     Undefined,
 }
@@ -404,6 +410,7 @@ impl JsValueFacade {
             JsValueFacade::JsArray { .. } => JsValueType::Array,
             JsValueFacade::JsFunction { .. } => JsValueType::Function,
             JsValueFacade::JsError { .. } => JsValueType::Error,
+            JsValueFacade::ProxyInstance { .. } => JsValueType::Object,
         }
     }
     pub fn stringify(&self) -> String {
@@ -455,6 +462,7 @@ impl JsValueFacade {
             JsValueFacade::Null => "Null".to_string(),
             JsValueFacade::Undefined => "Undefined".to_string(),
             JsValueFacade::JsError { val } => format!("{}", val),
+            JsValueFacade::ProxyInstance { .. } => "ProxyInstance".to_string(),
         }
     }
 }

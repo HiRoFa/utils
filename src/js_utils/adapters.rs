@@ -188,6 +188,11 @@ pub trait JsRealmAdapter {
             JsValueFacade::JsError { .. } => {
                 todo!()
             }
+            JsValueFacade::ProxyInstance {
+                instance_id,
+                namespace,
+                class_name,
+            } => self.js_proxy_instantiate_with_id(namespace, class_name, instance_id),
         }
     }
 
@@ -200,6 +205,12 @@ pub trait JsRealmAdapter {
     ) -> Result<Self::JsValueAdapterType, JsError>
     where
         Self: Sized;
+    fn js_proxy_instantiate_with_id(
+        &self,
+        namespace: &[&str],
+        class_name: &str,
+        instance_id: JsProxyInstanceId,
+    ) -> Result<Self::JsValueAdapterType, JsError>;
     fn js_proxy_instantiate(
         &self,
         namespace: &[&str],
