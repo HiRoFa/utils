@@ -127,7 +127,7 @@ impl<R: JsRealmAdapter> JsProxy<R> {
         );
         self
     }
-    pub fn add_getter<G, S>(self, name: &'static str, getter: G) -> Self
+    pub fn add_getter<G>(self, name: &'static str, getter: G) -> Self
     where
         G: Fn(
                 &R::JsRuntimeAdapterType,
