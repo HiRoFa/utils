@@ -2,13 +2,15 @@
 
 This is a utility project which is used in several other projects
 
+[DOCS](https://hirofa.github.io/utils/hirofa_utils/index.html)
+
 ## js_utils
 
 Abstractions & traits for JS engine related utilities
 
 ## AutoIdMap
 
-A map to which generates it's own unique keys (usize) 
+A map to which generates its own unique keys (usize) 
 
 ## Cache
 
