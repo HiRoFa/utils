@@ -4,6 +4,8 @@ This is a utility project which is used in several other projects
 
 [DOCS](https://hirofa.github.io/utils/hirofa_utils/index.html)
 
+[CHANGELOG](CHANGELOG.md)
+
 ## js_utils
 
 Abstractions & traits for JS engine related utilities
