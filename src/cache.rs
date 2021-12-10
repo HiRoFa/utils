@@ -157,7 +157,7 @@ pub mod tests {
     use crate::cache::{Cache, CacheIFace};
     use std::time::Duration;
 
-    fn test_send<S: Send>(_sendable :&S) {
+    fn test_send<S: Send>(_sendable: &S) {
         //
     }
 
