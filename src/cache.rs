@@ -23,7 +23,7 @@ struct CacheEntry<O> {
 pub struct Cache<K: std::cmp::Eq + std::hash::Hash, O> {
     // on every get remove and add (oldest items come first)
     entries: LinkedHashMap<K, CacheEntry<O>>,
-    producer: Box<dyn Fn(&K) -> Option<O>>,
+    producer: Box<dyn Fn(&K) -> Option<O> + Send>,
     max_inactive_time: Duration,
     inactive_resolution: Duration,
     max_size: usize,
@@ -32,7 +32,7 @@ pub struct Cache<K: std::cmp::Eq + std::hash::Hash, O> {
 impl<K: std::cmp::Eq + std::hash::Hash, O> Cache<K, O> {
     pub fn new<P>(producer: P, max_inactive_time: Duration, max_size: usize) -> Self
     where
-        P: Fn(&K) -> Option<O> + 'static,
+        P: Fn(&K) -> Option<O> + Send + 'static,
     {
         let inactive_resolution = max_inactive_time.div(10);
         Cache {
@@ -157,10 +157,16 @@ pub mod tests {
     use crate::cache::{Cache, CacheIFace};
     use std::time::Duration;
 
+    fn test_send<S: Send>(_sendable :&S) {
+        //
+    }
+
     #[test]
     fn test_cache() {
         let producer = |key: &&str| Some(format!("entry: {}", key));
         let mut cache: Cache<&str, String> = Cache::new(producer, Duration::from_secs(2), 10);
+
+        test_send(&cache);
 
         let _one = cache.get(&"a");
         let _two = cache.get(&"b");
