@@ -1,6 +1,6 @@
 use crate::js_utils::adapters::JsRuntimeAdapter;
 use crate::js_utils::facades::values::JsValueFacade;
-use crate::js_utils::modules::{NativeModuleLoader, ScriptModuleLoader};
+use crate::js_utils::modules::{CompiledModuleLoader, NativeModuleLoader, ScriptModuleLoader};
 use crate::js_utils::{JsError, Script, ScriptPreProcessor};
 use std::future::Future;
 use std::pin::Pin;
@@ -54,6 +54,11 @@ pub trait JsRuntimeBuilder {
     ) -> Self;
     /// add a module loader
     fn js_script_module_loader<S: ScriptModuleLoader + Send + 'static>(
+        self,
+        module_loader: S,
+    ) -> Self;
+    /// add a compiled_module loader
+    fn js_compiled_module_loader<S: CompiledModuleLoader + Send + 'static>(
         self,
         module_loader: S,
     ) -> Self;

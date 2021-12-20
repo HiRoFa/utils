@@ -494,4 +494,5 @@ pub trait JsValueAdapter {
     fn js_to_i32(&self) -> i32;
     fn js_to_f64(&self) -> f64;
     fn js_to_string(&self) -> Result<String, JsError>;
+    fn js_to_str(&self) -> Result<&str, JsError>;
 }

@@ -1,4 +1,9 @@
-# 0.3 (WiP)
+# 0.4.0
+
+* added CompiledModuleLoader
+* added js_to_str for JSValueAdapter
+
+# 0.3
 
 * bumped version for publish
 
