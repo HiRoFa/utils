@@ -5,9 +5,9 @@ pub trait ScriptModuleLoader {
     fn load_module(&self, absolute_path: &str) -> String;
 }
 
-pub trait CompiledModuleLoader {
-    fn normalize_path(&self, ref_path: &str, path: &str) -> Option<String>;
-    fn load_module(&self, absolute_path: &str) -> &Vec<u8>;
+pub trait CompiledModuleLoader<R: JsRealmAdapter> {
+    fn normalize_path(&self, q_ctx: &R, ref_path: &str, path: &str) -> Option<String>;
+    fn load_module(&self, q_ctx: &R, absolute_path: &str) -> &Vec<u8>;
 }
 
 pub trait NativeModuleLoader<R: JsRealmAdapter> {
