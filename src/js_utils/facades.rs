@@ -53,7 +53,7 @@ pub trait JsRuntimeBuilder {
         preprocessor: S,
     ) -> Self;
     /// add a module loader
-    fn js_script_module_loader<S: ScriptModuleLoader + Send + 'static>(
+    fn js_script_module_loader<S: ScriptModuleLoader<<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType> + Send + 'static>(
         self,
         module_loader: S,
     ) -> Self;
