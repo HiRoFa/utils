@@ -58,7 +58,11 @@ pub trait JsRuntimeBuilder {
         module_loader: S,
     ) -> Self;
     /// add a compiled_module loader
-    fn js_compiled_module_loader<S: CompiledModuleLoader + Send + 'static>(
+    fn js_compiled_module_loader<
+        S: CompiledModuleLoader<<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType>
+            + Send
+            + 'static
+    >(
         self,
         module_loader: S,
     ) -> Self;
