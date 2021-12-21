@@ -1,9 +1,9 @@
 use crate::js_utils::adapters::JsRealmAdapter;
 use std::sync::Arc;
 
-pub trait ScriptModuleLoader {
-    fn normalize_path(&self, ref_path: &str, path: &str) -> Option<String>;
-    fn load_module(&self, absolute_path: &str) -> String;
+pub trait ScriptModuleLoader<R: JsRealmAdapter> {
+    fn normalize_path(&self, realm: &R, ref_path: &str, path: &str) -> Option<String>;
+    fn load_module(&self, realm: &R, absolute_path: &str) -> String;
 }
 
 pub trait CompiledModuleLoader<R: JsRealmAdapter> {
