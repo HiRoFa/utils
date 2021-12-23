@@ -14,11 +14,24 @@ pub trait JsRuntimeAdapter {
     type JsRealmAdapterType: JsRealmAdapter + 'static;
     type JsRuntimeFacadeType: JsRuntimeFacade;
 
+    /// this method can be used to load the script code for a module (via any ScriptModuleLoader)
     fn js_load_module_script(&self, ref_path: &str, path: &str) -> Option<Script>;
 
+    /// create a new Realm
     fn js_create_realm(&mut self, id: &str) -> Result<&Self::JsRealmAdapterType, JsError>;
+
+    /// drop a Realm, please note that the Realm might not really be dropped until all promises have fulfilled
+    /// please note that this should not be able to remove the main realm
+    fn js_remove_realm(&mut self, id: &str);
+
+    /// get a Realm, if the realm does not exists None will be returned
     fn js_get_realm(&self, id: &str) -> Option<&Self::JsRealmAdapterType>;
+
+    /// get the main realm, this realm is always present and cannot be removed
     fn js_get_main_realm(&self) -> &Self::JsRealmAdapterType;
+
+    /// add a hook to add custom code for when a Realm is initialized
+    /// when adding a hook it will also be called for existing realms including the main realm
     fn js_add_realm_init_hook<H>(&mut self, hook: H) -> Result<(), JsError>
     where
         H: Fn(&Self, &Self::JsRealmAdapterType) -> Result<(), JsError> + 'static;
@@ -28,16 +41,23 @@ pub trait JsRealmAdapter {
     type JsRuntimeAdapterType: JsRuntimeAdapter;
     type JsValueAdapterType: JsValueAdapter + Clone + PartialEq;
 
-    // todo add method here to cache/uncache JsPromiseAdapter
-
+    /// get the id of this Realm
     fn js_get_realm_id(&self) -> &str;
 
+    /// get a Weak reference to the JsRuntimeFacadeInner
+    /// this can be used to e.g. add a job to that JsRuntimeFacadeInner for resolving promises async
     fn js_get_runtime_facade_inner(
         &self,
     ) -> Weak<<<<Self as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType> where Self: 'static;
 
+    /// get the name of the current module or script
+    /// for modules loaded via the HttpModuleLoader these will have a https:// prefix
+    /// modules loaded via the FileSystemModuleLoader will have a file:// prefix
     fn js_get_script_or_module_name(&self) -> Result<String, JsError>;
 
+    /// convert a JSValueAdapter to a Send able JSValueFacade
+    /// you'll need this to pass values out of the JSRuntimeAdapter's worker thread
+    /// the other way around you'll need from_js_value_facade to move values into the worker thread
     fn to_js_value_facade(
         &self,
         js_value: &Self::JsValueAdapterType,
@@ -103,6 +123,8 @@ pub trait JsRealmAdapter {
         Ok(res)
     }
 
+    /// convert a JSValueFacade into a JSValueAdapter
+    /// you need this to move values into the worker thread from a different thread (JSValueAdapter cannot leave the worker thread)
     fn from_js_value_facade(
         &self,
         value_facade: JsValueFacade,
@@ -196,8 +218,12 @@ pub trait JsRealmAdapter {
         }
     }
 
+    /// eval a script
+    /// please only use this for debugging/testing purposes
+    /// although most JS engines will return values as if really calling a eval() method some may not (e.g. StarLight requires a return statement)
     fn js_eval(&self, script: Script) -> Result<Self::JsValueAdapterType, JsError>;
 
+    /// install a JsProxy into this Realm
     fn js_proxy_install(
         &self,
         proxy: JsProxy<Self>,
@@ -205,18 +231,27 @@ pub trait JsRealmAdapter {
     ) -> Result<Self::JsValueAdapterType, JsError>
     where
         Self: Sized;
+
+    /// instantiate a JsProxy instance value based on an instance_id
+    /// this instance_id will be passed to the JsProxy's member methods
     fn js_proxy_instantiate_with_id(
         &self,
         namespace: &[&str],
         class_name: &str,
         instance_id: JsProxyInstanceId,
     ) -> Result<Self::JsValueAdapterType, JsError>;
+
+    /// instantiate a JsProxy instance value
+    /// an instance_id will be generated and returned
+    /// this instance_id will be passed to the JsProxy's member methods
     fn js_proxy_instantiate(
         &self,
         namespace: &[&str],
         class_name: &str,
         arguments: &[Self::JsValueAdapterType],
     ) -> Result<(JsProxyInstanceId, Self::JsValueAdapterType), JsError>;
+
+    /// dispatch an event to a JsProxy instance
     fn js_proxy_dispatch_event(
         &self,
         namespace: &[&str],
@@ -225,6 +260,8 @@ pub trait JsRealmAdapter {
         event_id: &str,
         event_obj: &Self::JsValueAdapterType,
     ) -> Result<bool, JsError>;
+
+    /// dispatch a static event to a JsProxy
     fn js_proxy_dispatch_static_event(
         &self,
         namespace: &[&str],
@@ -232,6 +269,8 @@ pub trait JsRealmAdapter {
         event_id: &str,
         event_obj: &Self::JsValueAdapterType,
     ) -> Result<bool, JsError>;
+
+    /// install a function into this realm
     #[allow(clippy::type_complexity)]
     fn js_install_function(
         &self,
@@ -245,6 +284,8 @@ pub trait JsRealmAdapter {
         ) -> Result<Self::JsValueAdapterType, JsError>,
         arg_count: u32,
     ) -> Result<(), JsError>;
+
+    /// install a function into this realm based on a closure
     fn js_install_closure<
         F: Fn(
                 &Self::JsRuntimeAdapterType,
@@ -260,27 +301,41 @@ pub trait JsRealmAdapter {
         js_function: F,
         arg_count: u32,
     ) -> Result<(), JsError>;
+
+    /// evaluate a module
     fn js_eval_module(&self, script: Script) -> Result<Self::JsValueAdapterType, JsError>;
+
+    /// get the global object
+    fn js_get_global(&self) -> Result<Self::JsValueAdapterType, JsError>;
+
+    /// get a namespace obj, when not present parts will be created
     fn js_get_namespace(&self, namespace: &[&str]) -> Result<Self::JsValueAdapterType, JsError>;
     // function methods
+    /// invoke a function by name
     fn js_function_invoke_by_name(
         &self,
         namespace: &[&str],
         method_name: &str,
         args: &[Self::JsValueAdapterType],
     ) -> Result<Self::JsValueAdapterType, JsError>;
+
+    /// invoke a member function of an object by name
     fn js_function_invoke_member_by_name(
         &self,
         this_obj: &Self::JsValueAdapterType,
         method_name: &str,
         args: &[Self::JsValueAdapterType],
     ) -> Result<Self::JsValueAdapterType, JsError>;
+
+    /// invoke a Funtion
     fn js_function_invoke(
         &self,
         this_obj: Option<&Self::JsValueAdapterType>,
         function_obj: &Self::JsValueAdapterType,
-        args: &[Self::JsValueAdapterType],
+        args: &[&Self::JsValueAdapterType],
     ) -> Result<Self::JsValueAdapterType, JsError>;
+
+    /// create a new Function
     fn js_function_create<
         F: Fn(
                 &Self,
@@ -295,33 +350,41 @@ pub trait JsRealmAdapter {
         arg_count: u32,
     ) -> Result<Self::JsValueAdapterType, JsError>;
     //object functions
+    /// delete a property of an Object
     fn js_object_delete_property(
         &self,
         object: &Self::JsValueAdapterType,
         property_name: &str,
     ) -> Result<(), JsError>;
+    /// set a property of an Object
     fn js_object_set_property(
         &self,
         object: &Self::JsValueAdapterType,
         property_name: &str,
         property: &Self::JsValueAdapterType,
     ) -> Result<(), JsError>;
-
+    /// get a property of an Object
     fn js_object_get_property(
         &self,
         object: &Self::JsValueAdapterType,
         property_name: &str,
     ) -> Result<Self::JsValueAdapterType, JsError>;
+    /// create a new Object
     fn js_object_create(&self) -> Result<Self::JsValueAdapterType, JsError>;
+
+    /// invoke a constructor Function to create new Object
     fn js_object_construct(
         &self,
         constructor: &Self::JsValueAdapterType,
         args: &[Self::JsValueAdapterType],
     ) -> Result<Self::JsValueAdapterType, JsError>;
+
+    /// get all property names of an Object
     fn js_object_get_properties(
         &self,
         object: &Self::JsValueAdapterType,
     ) -> Result<Vec<String>, JsError>;
+    /// traverse all properties of an Object
     fn js_object_traverse<F, R>(
         &self,
         object: &Self::JsValueAdapterType,
@@ -329,6 +392,7 @@ pub trait JsRealmAdapter {
     ) -> Result<Vec<R>, JsError>
     where
         F: Fn(&str, &Self::JsValueAdapterType) -> Result<R, JsError>;
+    /// traverse all properties of an Object with a FnMut
     fn js_object_traverse_mut<F>(
         &self,
         object: &Self::JsValueAdapterType,
@@ -337,19 +401,34 @@ pub trait JsRealmAdapter {
     where
         F: FnMut(&str, &Self::JsValueAdapterType) -> Result<(), JsError>;
     // array functions
+    /// get an element of an Array
     fn js_array_get_element(
         &self,
         array: &Self::JsValueAdapterType,
         index: u32,
     ) -> Result<Self::JsValueAdapterType, JsError>;
+    /// set an element of an Array
     fn js_array_set_element(
         &self,
         array: &Self::JsValueAdapterType,
         index: u32,
         element: &Self::JsValueAdapterType,
     ) -> Result<(), JsError>;
+    /// push an element into an Array
+    fn js_array_push_element(
+        &self,
+        array: &Self::JsValueAdapterType,
+        element: &Self::JsValueAdapterType,
+    ) -> Result<u32, JsError> {
+        let push_func = self.js_object_get_property(array, "push")?;
+        let res = self.js_function_invoke(Some(array), &push_func, &[element])?;
+        Ok(res.js_to_i32() as u32)
+    }
+    /// get the length of an Array
     fn js_array_get_length(&self, array: &Self::JsValueAdapterType) -> Result<u32, JsError>;
+    /// create a new Array
     fn js_array_create(&self) -> Result<Self::JsValueAdapterType, JsError>;
+    /// traverse all objects in an Array
     fn js_array_traverse<F, R>(
         &self,
         array: &Self::JsValueAdapterType,
@@ -357,6 +436,7 @@ pub trait JsRealmAdapter {
     ) -> Result<Vec<R>, JsError>
     where
         F: Fn(u32, &Self::JsValueAdapterType) -> Result<R, JsError>;
+    /// traverse all objects in an Array
     fn js_array_traverse_mut<F>(
         &self,
         array: &Self::JsValueAdapterType,
@@ -366,15 +446,25 @@ pub trait JsRealmAdapter {
         F: FnMut(u32, &Self::JsValueAdapterType) -> Result<(), JsError>;
     // primitives
 
+    /// create a null value
     fn js_null_create(&self) -> Result<Self::JsValueAdapterType, JsError>;
+    /// create an undefined value
     fn js_undefined_create(&self) -> Result<Self::JsValueAdapterType, JsError>;
+    /// create a Number value based on an i32
     fn js_i32_create(&self, val: i32) -> Result<Self::JsValueAdapterType, JsError>;
+    /// create a String value
     fn js_string_create(&self, val: &str) -> Result<Self::JsValueAdapterType, JsError>;
+    /// create a Boolean value
     fn js_boolean_create(&self, val: bool) -> Result<Self::JsValueAdapterType, JsError>;
+    /// create a Number value based on an f64
     fn js_f64_create(&self, val: f64) -> Result<Self::JsValueAdapterType, JsError>;
 
     // promises
+    /// create a new Promise
+    /// this returns JsPromiseAdapter which can be turned into a JsValueAdapter but can also be used to fulfill the promise
     fn js_promise_create(&self) -> Result<Box<dyn JsPromiseAdapter<Self>>, JsError>;
+    /// create a new Promise with a Future which will run async and then resolve or reject the promise
+    /// the mapper is used to convert the result of the future into a JSValueAdapter
     fn js_promise_create_resolving_async<P, R: Send + 'static, M>(
         &self,
         producer: P,
@@ -387,6 +477,8 @@ pub trait JsRealmAdapter {
     {
         crate::js_utils::adapters::promises::new_resolving_promise_async(self, producer, mapper)
     }
+    /// create a new Promise with a FnOnce producer which will run async and then resolve or reject the promise
+    /// the mapper is used to convert the result of the future into a JSValueAdapter
     fn js_promise_create_resolving<P, R: Send + 'static, M>(
         &self,
         producer: P,
@@ -400,6 +492,7 @@ pub trait JsRealmAdapter {
         crate::js_utils::adapters::promises::new_resolving_promise(self, producer, mapper)
     }
 
+    /// add reactions to an existing Promise object
     fn js_promise_add_reactions(
         &self,
         promise: &Self::JsValueAdapterType,
@@ -409,44 +502,74 @@ pub trait JsRealmAdapter {
     ) -> Result<(), JsError>;
 
     // cache
-
+    /// cache a JsPromiseAdapter so it can be accessed later based on an id, while cached the JsPromiseAdapter object will not be garbage collected
     fn js_promise_cache_add(&self, promise_ref: Box<dyn JsPromiseAdapter<Self>>) -> usize;
+    /// Consume a JsPromiseAdapter (remove from cache)
     fn js_promise_cache_consume(&self, id: usize) -> Box<dyn JsPromiseAdapter<Self>>;
 
+    /// cache a Object so it can be accessed later based on an id, while cached the Object will not be garbage collected
     fn js_cache_add(&self, object: &Self::JsValueAdapterType) -> i32;
+    /// remove an Object from the cache
     fn js_cache_dispose(&self, id: i32);
+    /// use an Object in the cache
     fn js_cache_with<C, R>(&self, id: i32, consumer: C) -> R
     where
         C: FnOnce(&Self::JsValueAdapterType) -> R;
+    /// get and remove an Object from the cache
     fn js_cache_consume(&self, id: i32) -> Self::JsValueAdapterType;
 
     // instanceof
+    /// check if a JsValueAdapter is an instance of another JsValueAdapter
     fn js_instance_of(
         &self,
         object: &Self::JsValueAdapterType,
         constructor: &Self::JsValueAdapterType,
     ) -> bool;
-
+    /// check if a JsValueAdapter is an instance of a constructor by name
+    /// # Example
+    /// ```dontrun
+    /// if realm.js_instance_of_by_name(val, "Date")? {
+    ///    // it's a date
+    /// }
+    /// ```
+    fn js_instance_of_by_name(
+        &self,
+        object: &Self::JsValueAdapterType,
+        constructor_name: &str,
+    ) -> Result<bool, JsError> {
+        let global = self.js_get_global()?;
+        let constructor = self.js_object_get_property(&global, constructor_name)?;
+        if constructor.js_is_null_or_undefined() {
+            Err(JsError::new_string(format!("no such constructor: {}", constructor_name)))
+        } else {
+            Ok(self.js_instance_of(object, &constructor))
+        }
+    }
     // json
+    /// turn any JsValueAdapter into a JSON string
     fn js_json_stringify(
         &self,
         object: &Self::JsValueAdapterType,
         opt_space: Option<&str>,
     ) -> Result<String, JsError>;
+    /// parse a JSON string into a JsValueAdapter
     fn js_json_parse(&self, json_string: &str) -> Result<Self::JsValueAdapterType, JsError>;
 }
 
 pub trait JsPromiseAdapter<R: JsRealmAdapter> {
+    /// resolve this JsPromiseAdapter
     fn js_promise_resolve(
         &self,
         realm: &R,
         resolution: &R::JsValueAdapterType,
     ) -> Result<(), JsError>;
+    /// reject this JsPromiseAdapter
     fn js_promise_reject(
         &self,
         realm: &R,
         rejection: &R::JsValueAdapterType,
     ) -> Result<(), JsError>;
+    /// get the JsValueAdapter for this Promise
     fn js_promise_get_value(&self, realm: &R) -> R::JsValueAdapterType;
 }
 

@@ -47,6 +47,19 @@ pub trait JsRuntimeBuilder {
         self,
         hook: H,
     ) -> Self;
+    /// add a realm adapter init hook, this will be called every time a realm is initialized
+    fn js_realm_adapter_init_hook<
+        H: FnOnce(&<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType) -> Result<(), JsError> + Send + 'static,
+    >(
+        self,
+        hook: H,
+    ) -> Self;
+    fn js_runtime_adapter_init_hook<
+        H: FnOnce(&<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) -> Result<(), JsError> + Send + 'static,
+    >(
+        self,
+        hook: H,
+    ) -> Self;
     /// add a script preprocessor
     fn js_script_pre_processor<S: ScriptPreProcessor + Send + 'static>(
         self,
@@ -96,6 +109,7 @@ pub trait JsRuntimeFacade {
     /// check if a realm is present
     fn js_realm_has(&self, name: &str) -> Result<bool, JsError>;
 
+
     /// util method to add a job to the EventLoop, usually this is passed to the JsRuntimeFacadeInner.js_loop_sync
     fn js_loop_sync<
         R: Send + 'static,
@@ -123,6 +137,7 @@ pub trait JsRuntimeFacade {
 
     // realm jobs
     /// util method to add a job to the EventLoop, usually this is passed to the JsRuntimeFacadeInner.js_loop_realm_sync
+    /// if the realm does not exist it should be initialized, in order to customize its initialization you could add a realm_init_hook to the Builder
     fn js_loop_realm_sync<
         R: Send + 'static,
         C: FnOnce(
@@ -136,6 +151,7 @@ pub trait JsRuntimeFacade {
         consumer: C,
     ) -> R;
     /// util method to add a job to the EventLoop, usually this is passed to the JsRuntimeFacadeInner.js_loop_realm
+    /// if the realm does not exist it should be initialized, in order to customize its initialization you could add a realm_init_hook to the Builder
     fn js_loop_realm<
         R: Send + 'static,
         C: FnOnce(
@@ -148,6 +164,7 @@ pub trait JsRuntimeFacade {
         consumer: C,
     ) -> Pin<Box<dyn Future<Output = R>>>;
     /// util method to add a job to the EventLoop, usually this is passed to the JsRuntimeFacadeInner.js_loop_realm_void
+    /// if the realm does not exist it should be initialized, in order to customize its initialization you could add a realm_init_hook to the Builder
     fn js_loop_realm_void<
         C: FnOnce(
                 &Self::JsRuntimeAdapterType,
