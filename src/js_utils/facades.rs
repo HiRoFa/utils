@@ -101,10 +101,10 @@ pub trait JsRuntimeFacade {
     fn js_get_runtime_facade_inner(&self) -> Weak<Self::JsRuntimeFacadeInnerType>;
 
     /// create a new JavaScript realm or context
-    fn js_realm_create(&mut self, name: &str) -> Result<(), JsError>;
+    fn js_realm_create(&self, name: &str) -> Result<(), JsError>;
 
     /// remove a JavaScript realm or context
-    fn js_realm_destroy(&mut self, name: &str) -> Result<(), JsError>;
+    fn js_realm_destroy(&self, name: &str) -> Result<(), JsError>;
 
     /// check if a realm is present
     fn js_realm_has(&self, name: &str) -> Result<bool, JsError>;
