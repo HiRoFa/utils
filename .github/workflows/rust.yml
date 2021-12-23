@@ -177,13 +177,13 @@ jobs:
         run: cargo test --verbose
       - name: Valgrind
         run: |
-          cd /~
+          cd ~
           git clone git://sourceware.org/git/valgrind.git
           mkdir vg
           chmod 777 vg
           cd valgrind
           ./autogen.sh
-          ./configure --prefix=/~/vg
+          ./configure --prefix=/home/runner/vg
           make
           make install
-          find ./target/debug/deps/hirofa_utils-* -maxdepth 1 -type f -executable | xargs /~/vg/valgrind --leak-check=full --error-exitcode=1
+          find ./target/debug/deps/hirofa_utils-* -maxdepth 1 -type f -executable | xargs /home/runner/vg/valgrind --leak-check=full --error-exitcode=1
