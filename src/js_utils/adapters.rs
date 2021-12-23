@@ -540,7 +540,10 @@ pub trait JsRealmAdapter {
         let global = self.js_get_global()?;
         let constructor = self.js_object_get_property(&global, constructor_name)?;
         if constructor.js_is_null_or_undefined() {
-            Err(JsError::new_string(format!("no such constructor: {}", constructor_name)))
+            Err(JsError::new_string(format!(
+                "no such constructor: {}",
+                constructor_name
+            )))
         } else {
             Ok(self.js_instance_of(object, &constructor))
         }

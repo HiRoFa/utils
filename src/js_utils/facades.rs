@@ -109,7 +109,6 @@ pub trait JsRuntimeFacade {
     /// check if a realm is present
     fn js_realm_has(&self, name: &str) -> Result<bool, JsError>;
 
-
     /// util method to add a job to the EventLoop, usually this is passed to the JsRuntimeFacadeInner.js_loop_sync
     fn js_loop_sync<
         R: Send + 'static,
