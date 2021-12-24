@@ -18,11 +18,11 @@ pub trait JsRuntimeAdapter {
     fn js_load_module_script(&self, ref_path: &str, path: &str) -> Option<Script>;
 
     /// create a new Realm
-    fn js_create_realm(&mut self, id: &str) -> Result<&Self::JsRealmAdapterType, JsError>;
+    fn js_create_realm(&self, id: &str) -> Result<&Self::JsRealmAdapterType, JsError>;
 
     /// drop a Realm, please note that the Realm might not really be dropped until all promises have fulfilled
     /// please note that this should not be able to remove the main realm
-    fn js_remove_realm(&mut self, id: &str);
+    fn js_remove_realm(&self, id: &str);
 
     /// get a Realm, if the realm does not exists None will be returned
     fn js_get_realm(&self, id: &str) -> Option<&Self::JsRealmAdapterType>;
@@ -32,7 +32,7 @@ pub trait JsRuntimeAdapter {
 
     /// add a hook to add custom code for when a Realm is initialized
     /// when adding a hook it will also be called for existing realms including the main realm
-    fn js_add_realm_init_hook<H>(&mut self, hook: H) -> Result<(), JsError>
+    fn js_add_realm_init_hook<H>(&self, hook: H) -> Result<(), JsError>
     where
         H: Fn(&Self, &Self::JsRealmAdapterType) -> Result<(), JsError> + 'static;
 }
