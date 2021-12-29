@@ -32,7 +32,7 @@ impl JsError {
     }
     pub fn new_string(err: String) -> Self {
         JsError {
-            name: "".to_string(),
+            name: "Error".to_string(),
             message: err,
             stack: "".to_string(),
         }
