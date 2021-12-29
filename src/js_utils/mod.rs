@@ -50,7 +50,7 @@ impl JsError {
 
 impl std::fmt::Display for JsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let e = format!("{}: {} at{}", self.name, self.message, self.stack);
+        let e = format!("{}: {}\n{}", self.name, self.message, self.stack);
         f.write_str(e.as_str())
     }
 }
