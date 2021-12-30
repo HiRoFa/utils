@@ -228,7 +228,7 @@ impl CachedJsFunctionRef {
         rti.js_add_rt_task_to_event_loop(move |rt| {
             //
             if let Some(realm) = rt.js_get_realm(realm_id.as_str()) {
-                realm.js_cache_with(cached_obj_id, |func_adapter| {
+                realm.js_cache_with(cached_obj_id, move |func_adapter| {
                     let mut adapter_args = vec![];
                     for arg in args {
                         adapter_args.push(realm.from_js_value_facade(arg)?);
@@ -495,12 +495,22 @@ impl JsValueFacade {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::js_utils::facades::values::JsValueFacade;
+    use crate::js_utils::facades::values::{CachedJsFunctionRef, CachedJsObjectRef, JsValueFacade};
+    use std::sync::Mutex;
 
     #[test]
     fn test_jsvf() {
         fn test<A: Send + Sync>(_a: A) {}
 
         test(JsValueFacade::Null);
+        test(JsValueFacade::JsFunction {
+            cached_function: CachedJsFunctionRef {
+                cached_object: CachedJsObjectRef {
+                    id: 0,
+                    realm_id: "".to_string(),
+                    drop_action: Mutex::new(None),
+                },
+            },
+        })
     }
 }
