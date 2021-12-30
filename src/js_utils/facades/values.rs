@@ -219,7 +219,7 @@ impl CachedJsArrayRef {
 impl CachedJsFunctionRef {
     pub async fn js_invoke_function<R: JsRuntimeFacadeInner>(
         &self,
-        rti: &R,
+        rti: Arc<R>,
         args: Vec<JsValueFacade>,
     ) -> Result<JsValueFacade, JsError> {
         let cached_obj_id = self.cached_object.id;
