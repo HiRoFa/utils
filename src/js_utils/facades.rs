@@ -28,7 +28,7 @@ pub trait JsRuntimeFacadeInner {
     >(
         &self,
         task: J,
-    ) -> Pin<Box<dyn Future<Output = R>>>;
+    ) -> Pin<Box<dyn Future<Output = R> + Send>>;
     /// run a closure in the EventLoop with a &JsRuntimeAdapter as only param
     fn js_add_rt_task_to_event_loop_void<J: FnOnce(&<<Self as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType) + Send + 'static>(
         &self,

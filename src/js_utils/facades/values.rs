@@ -221,7 +221,8 @@ impl CachedJsFunctionRef {
         &self,
         rti: &R,
         args: Vec<JsValueFacade>,
-    ) -> Pin<Box<dyn futures::Future<Output = Result<JsValueFacade, JsError>>>> {
+    ) -> Pin<Box<dyn futures::Future<Output = Result<JsValueFacade, JsError>> + Send>> {
+        //Pin<Box<dyn futures::Future<Output = Result<JsValueFacade, JsError>>>>
         let cached_obj_id = self.cached_object.id;
         let realm_id = self.cached_object.realm_id.clone();
 
