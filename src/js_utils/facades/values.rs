@@ -217,11 +217,11 @@ impl CachedJsArrayRef {
 }
 
 impl CachedJsFunctionRef {
-    pub async fn js_invoke_function<R: JsRuntimeFacadeInner>(
+    pub fn js_invoke_function<R: JsRuntimeFacadeInner>(
         &self,
-        rti: Arc<R>,
+        rti: &R,
         args: Vec<JsValueFacade>,
-    ) -> Result<JsValueFacade, JsError> {
+    ) -> Pin<Box<dyn futures::Future<Output = Result<JsValueFacade, JsError>>>> {
         let cached_obj_id = self.cached_object.id;
         let realm_id = self.cached_object.realm_id.clone();
 
@@ -248,7 +248,6 @@ impl CachedJsFunctionRef {
                 Ok(JsValueFacade::Null)
             }
         })
-        .await
     }
     pub fn js_invoke_function_sync<R: JsRuntimeFacadeInner>(
         &self,
