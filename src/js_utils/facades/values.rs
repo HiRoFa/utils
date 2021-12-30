@@ -219,10 +219,36 @@ impl CachedJsArrayRef {
 impl CachedJsFunctionRef {
     pub async fn js_invoke_function<R: JsRuntimeFacadeInner>(
         &self,
-        _rti: &R,
-        _args: Vec<JsValueFacade>,
+        rti: &R,
+        args: Vec<JsValueFacade>,
     ) -> Result<JsValueFacade, JsError> {
-        todo!()
+        let cached_obj_id = self.cached_object.id;
+        let realm_id = self.cached_object.realm_id.clone();
+
+        rti.js_add_rt_task_to_event_loop(move |rt| {
+            //
+            if let Some(realm) = rt.js_get_realm(realm_id.as_str()) {
+                realm.js_cache_with(cached_obj_id, |func_adapter| {
+                    let mut adapter_args = vec![];
+                    for arg in args {
+                        adapter_args.push(realm.from_js_value_facade(arg)?);
+                    }
+
+                    let adapter_refs: Vec<&<<<<R as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType> = adapter_args.iter().collect();
+
+                    let val_adapter = realm.js_function_invoke(
+                        None,
+                        func_adapter,
+                        &adapter_refs,
+                    )?;
+
+                    realm.to_js_value_facade(&val_adapter)
+                })
+            } else {
+                Ok(JsValueFacade::Null)
+            }
+        })
+        .await
     }
     pub fn js_invoke_function_sync<R: JsRuntimeFacadeInner>(
         &self,
