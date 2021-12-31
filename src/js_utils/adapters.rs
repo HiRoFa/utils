@@ -349,6 +349,13 @@ pub trait JsRealmAdapter {
         js_function: F,
         arg_count: u32,
     ) -> Result<Self::JsValueAdapterType, JsError>;
+    //error functions
+    fn js_error_create(
+        &self,
+        name: &str,
+        message: &str,
+        stack: &str,
+    ) -> Result<Self::JsValueAdapterType, JsError>;
     //object functions
     /// delete a property of an Object
     fn js_object_delete_property(

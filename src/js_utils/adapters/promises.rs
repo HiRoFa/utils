@@ -135,9 +135,9 @@ pub(crate) fn new_resolving_promise_async<P, R, M, T>(
                                 }
                                 Err(err) => {
                                     let err_ref = realm
-                                        .js_string_create(err.get_message())
+                                        .js_error_create(err.get_name(), err.get_message(), err.get_stack())
                                         .ok()
-                                        .expect("could not create str");
+                                        .expect("could not create err");
                                     prom_ref
                                         .js_promise_reject(realm, &err_ref)
                                         .ok()
