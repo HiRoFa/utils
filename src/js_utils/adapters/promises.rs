@@ -53,7 +53,7 @@ where
                                 }
                                 Err(err) => {
                                     let err_ref = realm
-                                        .js_string_create(err.get_message())
+                                        .js_error_create(err.get_name(), err.get_message(), err.get_stack())
                                         .ok()
                                         .expect("could not create str");
                                     prom_ref
@@ -66,7 +66,7 @@ where
                         Err(err) => {
                             // todo use error:new_error(err)
                             let err_ref = realm
-                                .js_string_create(format!("{}", err).as_str())
+                                .js_error_create(err.get_name(), err.get_message(), err.get_stack())
                                 .ok()
                                 .expect("could not create str");
                             prom_ref
@@ -148,7 +148,7 @@ pub(crate) fn new_resolving_promise_async<P, R, M, T>(
                         Err(err) => {
                             // todo use error:new_error(err)
                             let err_ref = realm
-                                .js_string_create(format!("{}", err).as_str())
+                                .js_error_create(err.get_name(), err.get_message(), err.get_stack())
                                 .ok()
                                 .expect("could not create str");
                             prom_ref
