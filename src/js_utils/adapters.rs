@@ -207,8 +207,8 @@ pub trait JsRealmAdapter {
             }
             JsValueFacade::Null => self.js_null_create(),
             JsValueFacade::Undefined => self.js_undefined_create(),
-            JsValueFacade::JsError { .. } => {
-                todo!()
+            JsValueFacade::JsError { val } => {
+                self.js_error_create(val.get_name(), val.get_message(), val.get_stack())
             }
             JsValueFacade::ProxyInstance {
                 instance_id,
