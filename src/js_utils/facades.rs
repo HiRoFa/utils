@@ -2,6 +2,7 @@ use crate::js_utils::adapters::JsRuntimeAdapter;
 use crate::js_utils::facades::values::JsValueFacade;
 use crate::js_utils::modules::{CompiledModuleLoader, NativeModuleLoader, ScriptModuleLoader};
 use crate::js_utils::{JsError, Script, ScriptPreProcessor};
+use std::fmt::{Display, Formatter};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Weak;
@@ -249,4 +250,34 @@ pub enum JsValueType {
     Undefined,
     Array,
     Error,
+}
+
+impl Display for JsValueType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            JsValueType::I32 => f.write_str("I32"),
+            JsValueType::F64 => f.write_str("F64"),
+            JsValueType::String => f.write_str("String"),
+            JsValueType::Boolean => f.write_str("Boolean"),
+            JsValueType::Object => f.write_str("Object"),
+            JsValueType::Function => f.write_str("Function"),
+            JsValueType::BigInt => f.write_str("BigInt"),
+            JsValueType::Promise => f.write_str("Promise"),
+            JsValueType::Date => f.write_str("Date"),
+            JsValueType::Null => f.write_str("Null"),
+            JsValueType::Undefined => f.write_str("Undefined"),
+            JsValueType::Array => f.write_str("Array"),
+            JsValueType::Error => f.write_str("Error"),
+        }
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::js_utils::facades::JsValueType;
+
+    #[test]
+    fn test_fmt() {
+        println!("t:{}", JsValueType::String);
+    }
 }
