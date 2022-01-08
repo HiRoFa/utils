@@ -383,7 +383,7 @@ pub trait JsRealmAdapter {
     fn js_object_construct(
         &self,
         constructor: &Self::JsValueAdapterType,
-        args: &[Self::JsValueAdapterType],
+        args: &[&Self::JsValueAdapterType],
     ) -> Result<Self::JsValueAdapterType, JsError>;
 
     /// get all property names of an Object
