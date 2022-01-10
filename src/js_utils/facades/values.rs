@@ -530,6 +530,72 @@ impl JsValueFacade {
     }
 }
 
+pub trait JsValueConvertable {
+    fn to_js_value_facade(self) -> JsValueFacade;
+}
+
+impl JsValueConvertable for bool {
+    fn to_js_value_facade(self) -> JsValueFacade {
+        JsValueFacade::new_bool(self)
+    }
+}
+
+impl JsValueConvertable for i32 {
+    fn to_js_value_facade(self) -> JsValueFacade {
+        JsValueFacade::new_i32(self)
+    }
+}
+
+impl JsValueConvertable for f64 {
+    fn to_js_value_facade(self) -> JsValueFacade {
+        JsValueFacade::new_f64(self)
+    }
+}
+
+impl JsValueConvertable for &str {
+    fn to_js_value_facade(self) -> JsValueFacade {
+        JsValueFacade::new_str(self)
+    }
+}
+
+impl JsValueConvertable for String {
+    fn to_js_value_facade(self) -> JsValueFacade {
+        JsValueFacade::new_string(self)
+    }
+}
+
+impl JsValueConvertable for Vec<u8> {
+    fn to_js_value_facade(self) -> JsValueFacade {
+        JsValueFacade::TypedArray {
+            buffer: self,
+            array_type: TypedArrayType::Uint8,
+        }
+    }
+}
+
+impl JsValueConvertable for Vec<JsValueFacade> {
+    fn to_js_value_facade(self) -> JsValueFacade {
+        JsValueFacade::Array { val: self }
+    }
+}
+
+impl JsValueConvertable for HashMap<String, JsValueFacade> {
+    fn to_js_value_facade(self) -> JsValueFacade {
+        JsValueFacade::Object { val: self }
+    }
+}
+/* todo
+impl JsValueConvertable for Fn(&[JsValueFacade]) -> Result<JsValueFacade, JsError> + Send + Sync {
+    fn to_js_value_facade(self) -> JsValueFacade {
+        JsValueFacade::Function {
+            name: "".to_string(),
+            arg_count: 0,
+            func: Arc::new(Box::new(self)),
+        }
+    }
+}
+ */
+
 #[cfg(test)]
 pub mod tests {
     use crate::js_utils::facades::values::{CachedJsFunctionRef, CachedJsObjectRef, JsValueFacade};
