@@ -1,6 +1,7 @@
 use crate::js_utils::adapters::proxies::{JsProxy, JsProxyInstanceId};
 use crate::js_utils::facades::values::{
     CachedJsArrayRef, CachedJsFunctionRef, CachedJsObjectRef, CachedJsPromiseRef, JsValueFacade,
+    TypedArrayType,
 };
 use crate::js_utils::facades::{JsRuntimeFacade, JsRuntimeFacadeInner, JsValueType};
 use crate::js_utils::{JsError, Script};
@@ -215,6 +216,9 @@ pub trait JsRealmAdapter {
                 namespace,
                 class_name,
             } => self.js_proxy_instantiate_with_id(namespace, class_name, instance_id),
+            JsValueFacade::TypedArray { buffer, array_type } => match array_type {
+                TypedArrayType::Uint8 => self.js_typed_array_uint8_create(buffer),
+            },
         }
     }
 
@@ -564,6 +568,28 @@ pub trait JsRealmAdapter {
     ) -> Result<String, JsError>;
     /// parse a JSON string into a JsValueAdapter
     fn js_json_parse(&self, json_string: &str) -> Result<Self::JsValueAdapterType, JsError>;
+
+    ///create a new typed array
+    fn js_typed_array_uint8_create(
+        &self,
+        buffer: Vec<u8>,
+    ) -> Result<Self::JsValueAdapterType, JsError>;
+
+    ///create a new typed array
+    fn js_typed_array_uint8_create_copy(
+        &self,
+        buffer: &[u8],
+    ) -> Result<Self::JsValueAdapterType, JsError>;
+
+    fn js_typed_array_detach_buffer(
+        &self,
+        array: &Self::JsValueAdapterType,
+    ) -> Result<Vec<u8>, JsError>;
+
+    fn js_typed_array_copy_buffer(
+        &self,
+        array: &Self::JsValueAdapterType,
+    ) -> Result<Vec<u8>, JsError>;
 }
 
 pub trait JsPromiseAdapter<R: JsRealmAdapter> {
@@ -616,6 +642,8 @@ pub trait JsValueAdapter {
     fn js_is_promise(&self) -> bool {
         self.js_get_type() == JsValueType::Promise
     }
+
+    fn js_is_typed_array(&self) -> bool;
 
     fn js_is_null_or_undefined(&self) -> bool {
         self.js_get_type() == JsValueType::Null || self.js_get_type() == JsValueType::Undefined

@@ -2,6 +2,7 @@
 
 * added CompiledModuleLoader
 * added js_to_str for JSValueAdapter
+* added typed array support (UInt8 only for now)
 
 # 0.3
 

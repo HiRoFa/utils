@@ -286,6 +286,10 @@ impl CachedJsFunctionRef {
     }
 }
 
+pub enum TypedArrayType {
+    Uint8,
+}
+
 /// The JsValueFacade is a Send-able representation of a value in the Script engine
 #[allow(clippy::type_complexity)]
 pub enum JsValueFacade {
@@ -342,6 +346,10 @@ pub enum JsValueFacade {
         namespace: &'static [&'static str],
         class_name: &'static str,
         instance_id: JsProxyInstanceId,
+    },
+    TypedArray {
+        buffer: Vec<u8>,
+        array_type: TypedArrayType,
     },
     Null,
     Undefined,
@@ -464,6 +472,7 @@ impl JsValueFacade {
             JsValueFacade::JsFunction { .. } => JsValueType::Function,
             JsValueFacade::JsError { .. } => JsValueType::Error,
             JsValueFacade::ProxyInstance { .. } => JsValueType::Object,
+            JsValueFacade::TypedArray { .. } => JsValueType::Object,
         }
     }
     pub fn stringify(&self) -> String {
@@ -516,6 +525,7 @@ impl JsValueFacade {
             JsValueFacade::Undefined => "Undefined".to_string(),
             JsValueFacade::JsError { val } => format!("{}", val),
             JsValueFacade::ProxyInstance { .. } => "ProxyInstance".to_string(),
+            JsValueFacade::TypedArray { .. } => "TypedArray".to_string(),
         }
     }
 }
