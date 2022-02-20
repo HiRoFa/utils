@@ -1,4 +1,8 @@
-# 0.4.1 (WiP)
+# 0.5 (WiP)
+
+*
+
+# 0.4.1 
 
 added realm.js_function_create_async
 

@@ -1,10 +1,11 @@
 [package]
 name = "hirofa_utils"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["HiRoFa <info@hirofa.com>"]
 edition = "2018"
 description = "Utils project which is depended on by several other projects"
 license = "MIT"
+repository = "https://github.com/HiRoFa/utils"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
