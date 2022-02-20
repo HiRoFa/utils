@@ -3,6 +3,7 @@ use futures::executor::{LocalPool, LocalSpawner};
 use futures::task::{LocalSpawnExt, SpawnExt};
 use lazy_static::lazy_static;
 use std::cell::RefCell;
+use std::fmt::Formatter;
 use std::future::Future;
 use std::ops::Add;
 use std::rc::Rc;
@@ -10,6 +11,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, sync_channel, SyncSender};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
+use tracing::Instrument;
 
 lazy_static! {
     static ref IDS: AtomicUsize = AtomicUsize::new(0);
@@ -196,7 +198,9 @@ impl EventLoop {
             spawner
                 .as_ref()
                 .unwrap()
-                .spawn_local(fut)
+                .spawn_local(
+                    fut.instrument(tracing::info_span!("EventLoop::add_local_future_void")),
+                )
                 .expect("start fut failed");
         });
     }
@@ -211,7 +215,9 @@ impl EventLoop {
             spawner
                 .as_ref()
                 .unwrap()
-                .spawn_local_with_handle(fut)
+                .spawn_local_with_handle(
+                    fut.instrument(tracing::info_span!("EventLoop::add_local_future")),
+                )
                 .expect("start fut failed")
         })
     }
@@ -227,7 +233,8 @@ impl EventLoop {
         &self,
         task: T,
     ) -> impl Future<Output = R> {
-        self.add_future(async move { task() })
+        self.add_future(async move { task() }.instrument(tracing::info_span!("EventLoop::add1")))
+            .instrument(tracing::info_span!("EventLoop::add"))
     }
 
     /// execute a task in the EventLoop and block until it completes
@@ -290,7 +297,7 @@ impl EventLoop {
     /// add a task to the pool
     pub fn add_void<T: FnOnce() + Send + 'static>(&self, task: T) {
         if self.is_my_pool_thread() {
-            Self::add_local_void(task)
+            Self::add_local_void(task);
         } else {
             let tx = self.tx.clone();
             tx.send(Box::new(task)).expect("send failed");
@@ -358,6 +365,11 @@ impl Drop for EventLoop {
         if let Some(join_handle) = self.join_handle.take() {
             let _ = join_handle.join();
         }
+    }
+}
+impl std::fmt::Debug for EventLoop {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("EventLoop")
     }
 }
 

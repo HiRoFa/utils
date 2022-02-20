@@ -5,6 +5,7 @@ use crate::js_utils::JsError;
 use crate::resolvable_future::ResolvableFuture;
 use futures::Future;
 use std::collections::HashMap;
+use std::fmt::{Debug, Formatter};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
@@ -527,6 +528,12 @@ impl JsValueFacade {
             JsValueFacade::ProxyInstance { .. } => "ProxyInstance".to_string(),
             JsValueFacade::TypedArray { .. } => "TypedArray".to_string(),
         }
+    }
+}
+
+impl Debug for JsValueFacade {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.stringify().as_str())
     }
 }
 

@@ -3,7 +3,7 @@
 //! The facade classes are for use outside the worker thread, they are Send
 //!
 
-use std::fmt::{Error, Formatter};
+use std::fmt::{Debug, Error, Formatter};
 
 pub mod adapters;
 pub mod facades;
@@ -58,6 +58,12 @@ impl std::fmt::Display for JsError {
 pub struct Script {
     path: String,
     code: String,
+}
+
+impl Debug for Script {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(format!("Script:{}", self.path.as_str()).as_str())
+    }
 }
 
 impl Script {

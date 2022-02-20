@@ -353,6 +353,41 @@ pub trait JsRealmAdapter {
         js_function: F,
         arg_count: u32,
     ) -> Result<Self::JsValueAdapterType, JsError>;
+    fn js_function_create_async<R, F>(
+        &self,
+        name: &str,
+        js_function: F,
+        arg_count: u32,
+    ) -> Result<Self::JsValueAdapterType, JsError>
+    where
+        Self: Sized + 'static,
+        R: Future<Output = Result<JsValueFacade, JsError>> + Send + 'static,
+        F: Fn(JsValueFacade, Vec<JsValueFacade>) -> R + 'static,
+    {
+        //
+        self.js_function_create(
+            name,
+            move |realm, this, args| {
+                let this_fac = realm.to_js_value_facade(this)?;
+                let mut args_fac = vec![];
+                for arg in args {
+                    args_fac.push(realm.to_js_value_facade(arg)?);
+                }
+                let fut = js_function(this_fac, args_fac);
+                realm.js_promise_create_resolving_async(
+                    async move {
+                        let res = fut.await;
+                        res
+                    },
+                    |realm, pres| {
+                        //
+                        realm.from_js_value_facade(pres)
+                    },
+                )
+            },
+            arg_count,
+        )
+    }
     //error functions
     fn js_error_create(
         &self,
