@@ -1,3 +1,7 @@
+# 0.4.1 (WiP)
+
+added realm.js_function_create_async
+
 # 0.4.0
 
 * added CompiledModuleLoader

@@ -11,7 +11,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, sync_channel, SyncSender};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
-use tracing::Instrument;
 
 lazy_static! {
     static ref IDS: AtomicUsize = AtomicUsize::new(0);
@@ -198,9 +197,7 @@ impl EventLoop {
             spawner
                 .as_ref()
                 .unwrap()
-                .spawn_local(
-                    fut.instrument(tracing::info_span!("EventLoop::add_local_future_void")),
-                )
+                .spawn_local(fut)
                 .expect("start fut failed");
         });
     }
@@ -215,9 +212,7 @@ impl EventLoop {
             spawner
                 .as_ref()
                 .unwrap()
-                .spawn_local_with_handle(
-                    fut.instrument(tracing::info_span!("EventLoop::add_local_future")),
-                )
+                .spawn_local_with_handle(fut)
                 .expect("start fut failed")
         })
     }
@@ -233,8 +228,7 @@ impl EventLoop {
         &self,
         task: T,
     ) -> impl Future<Output = R> {
-        self.add_future(async move { task() }.instrument(tracing::info_span!("EventLoop::add1")))
-            .instrument(tracing::info_span!("EventLoop::add"))
+        self.add_future(async move { task() })
     }
 
     /// execute a task in the EventLoop and block until it completes
