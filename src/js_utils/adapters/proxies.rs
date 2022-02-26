@@ -1,7 +1,11 @@
+//! utils for implementing proxy classes which can be used to use rust structs from JS (define method/getters/setters/etc)
+
 use crate::js_utils::adapters::JsRealmAdapter;
 use crate::js_utils::JsError;
 use std::collections::HashMap;
 
+/// Fn type for a constructor, this will be invoked when a proxy is created in script with the 'new' keyword
+/// You can use the JsProxyInstanceId as a key to store/dispose and access your inner Rust struct.
 pub type JsProxyConstructor<R> = dyn Fn(
     &<R as JsRealmAdapter>::JsRuntimeAdapterType,
     &R,

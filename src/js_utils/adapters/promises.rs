@@ -5,6 +5,10 @@ use crate::js_utils::JsError;
 use futures::Future;
 
 #[allow(clippy::type_complexity)]
+/// create a new promise with a producer and a mapper
+/// the producer will run in a helper thread(in the tokio thread pool) and thus get a result asynchronously
+/// the resulting value will then be mapped to a JSValueRef by the mapper in the EventQueue thread
+/// the promise which was returned is then resolved with the value which is returned by the mapper
 pub fn new_resolving_promise<P, R, M, T>(
     realm: &T,
     producer: P,
@@ -88,6 +92,10 @@ where
 }
 
 #[allow(clippy::type_complexity)]
+/// create a new promise with an async producer and a mapper
+/// the producer will be awaited asynchronously and
+/// the resulting value will then be mapped to a JSValueRef by the mapper in the EventQueue thread
+/// the promise which was returned is then resolved with the value which is returned by the mapper
 pub(crate) fn new_resolving_promise_async<P, R, M, T>(
     realm: &T,
     producer: P,
