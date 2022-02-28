@@ -50,7 +50,7 @@ pub trait JsRuntimeBuilder {
     ) -> Self;
     /// add a realm adapter init hook, this will be called every time a realm is initialized
     fn js_realm_adapter_init_hook<
-        H: FnOnce(&<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType) -> Result<(), JsError> + Send + 'static,
+        H: Fn(&<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType, &<<<Self as JsRuntimeBuilder>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType) -> Result<(), JsError> + Send + 'static,
     >(
         self,
         hook: H,

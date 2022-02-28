@@ -625,6 +625,13 @@ pub trait JsRealmAdapter {
         &self,
         array: &Self::JsValueAdapterType,
     ) -> Result<Vec<u8>, JsError>;
+
+    fn js_proxy_instance_get_info(
+        &self,
+        obj: &Self::JsValueAdapterType,
+    ) -> Result<(String, JsProxyInstanceId), JsError>
+    where
+        Self: Sized;
 }
 
 pub trait JsPromiseAdapter<R: JsRealmAdapter> {
@@ -679,6 +686,7 @@ pub trait JsValueAdapter {
     }
 
     fn js_is_typed_array(&self) -> bool;
+    fn js_is_proxy_instance(&self) -> bool;
 
     fn js_is_null_or_undefined(&self) -> bool {
         self.js_get_type() == JsValueType::Null || self.js_get_type() == JsValueType::Undefined

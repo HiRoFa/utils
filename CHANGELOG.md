@@ -1,6 +1,9 @@
-# 0.5 (WiP)
+# 0.6 (WiP)
 
-*
+# 0.5.0
+
+* proxy instance info functions
+* altered realm_init_hook signature to Fn from FnOnce
 
 # 0.4.1 
 

@@ -1,6 +1,6 @@
 [package]
 name = "hirofa_utils"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["HiRoFa <info@hirofa.com>"]
 edition = "2018"
 description = "Utils project which is depended on by several other projects"
