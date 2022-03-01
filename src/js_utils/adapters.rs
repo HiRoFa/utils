@@ -231,6 +231,7 @@ pub trait JsRealmAdapter {
             JsValueFacade::TypedArray { buffer, array_type } => match array_type {
                 TypedArrayType::Uint8 => self.js_typed_array_uint8_create(buffer),
             },
+            JsValueFacade::JsonStr { json } => self.js_json_parse(json.as_str()),
         }
     }
 

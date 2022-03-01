@@ -1,5 +1,9 @@
 # 0.6 (WiP)
 
+# 0.5.2
+
+* added JsValueFacade::JsonStr to pass a json string which is parsed when converted to JsValueAdapter
+
 # 0.5.1
 
 * added code to transform typed array to JsValueFacade
