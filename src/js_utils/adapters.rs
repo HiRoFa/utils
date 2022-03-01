@@ -79,9 +79,21 @@ pub trait JsRealmAdapter {
             JsValueType::Boolean => JsValueFacade::Boolean {
                 val: js_value.js_to_bool(),
             },
-            JsValueType::Object => JsValueFacade::JsObject {
-                cached_object: CachedJsObjectRef::new(self, js_value),
-            },
+            JsValueType::Object => {
+                if js_value.js_is_typed_array() {
+                    // todo TypedArray as JsValueType?
+                    // passing a typedarray out of the worker thread is sketchy because you either copy the buffer like we do here, or you detach the buffer effectively destroying the jsvalue
+                    // you should be better of optimizing this in native methods
+                    JsValueFacade::TypedArray {
+                        buffer: self.js_typed_array_copy_buffer(js_value)?,
+                        array_type: TypedArrayType::Uint8,
+                    }
+                } else {
+                    JsValueFacade::JsObject {
+                        cached_object: CachedJsObjectRef::new(self, js_value),
+                    }
+                }
+            }
             JsValueType::Function => JsValueFacade::JsFunction {
                 cached_function: CachedJsFunctionRef {
                     cached_object: CachedJsObjectRef::new(self, js_value),

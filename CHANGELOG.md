@@ -1,5 +1,9 @@
 # 0.6 (WiP)
 
+# 0.5.1
+
+* added code to transform typed array to JsValueFacade
+
 # 0.5.0
 
 * proxy instance info functions
