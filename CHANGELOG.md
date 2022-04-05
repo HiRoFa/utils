@@ -1,4 +1,6 @@
-# 0.6 (WiP)
+# 0.6.0 (WiP)
+
+* use DefaultAtom for string in JsValueFacade
 
 # 0.5.2
 

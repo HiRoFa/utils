@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use string_cache::DefaultAtom;
 
 pub struct CachedJsObjectRef {
     pub(crate) id: i32,
@@ -301,7 +302,7 @@ pub enum JsValueFacade {
         val: f64,
     },
     String {
-        val: String,
+        val: DefaultAtom,
     },
     Boolean {
         val: bool,
@@ -368,13 +369,18 @@ impl JsValueFacade {
     pub fn new_bool(val: bool) -> Self {
         Self::Boolean { val }
     }
+    pub fn new_str_atom(val: DefaultAtom) -> Self {
+        Self::String { val }
+    }
     pub fn new_str(val: &str) -> Self {
         Self::String {
-            val: val.to_string(),
+            val: DefaultAtom::from(val),
         }
     }
     pub fn new_string(val: String) -> Self {
-        Self::String { val }
+        Self::String {
+            val: DefaultAtom::from(val.as_str()),
+        }
     }
     pub fn new_callback<
         F: Fn(&[JsValueFacade]) -> Result<JsValueFacade, JsError> + Send + Sync + 'static,
@@ -448,7 +454,15 @@ impl JsValueFacade {
     }
     pub fn get_str(&self) -> &str {
         match self {
-            JsValueFacade::String { val } => val.as_str(),
+            JsValueFacade::String { val } => &*val,
+            _ => {
+                panic!("Not a string");
+            }
+        }
+    }
+    pub fn get_str_atom(&self) -> &DefaultAtom {
+        match self {
+            JsValueFacade::String { val } => val,
             _ => {
                 panic!("Not a string");
             }

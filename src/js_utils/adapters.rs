@@ -7,6 +7,7 @@ use crate::js_utils::facades::{JsRuntimeFacade, JsRuntimeFacadeInner, JsValueTyp
 use crate::js_utils::{JsError, Script};
 use futures::Future;
 use std::sync::Weak;
+use string_cache::DefaultAtom;
 
 pub mod promises;
 pub mod proxies;
@@ -74,7 +75,7 @@ pub trait JsRealmAdapter {
                 val: js_value.js_to_f64(),
             },
             JsValueType::String => JsValueFacade::String {
-                val: js_value.js_to_string()?,
+                val: DefaultAtom::from(js_value.js_to_str()?),
             },
             JsValueType::Boolean => JsValueFacade::Boolean {
                 val: js_value.js_to_bool(),
@@ -148,7 +149,7 @@ pub trait JsRealmAdapter {
         match value_facade {
             JsValueFacade::I32 { val } => self.js_i32_create(val),
             JsValueFacade::F64 { val } => self.js_f64_create(val),
-            JsValueFacade::String { val } => self.js_string_create(val.as_str()),
+            JsValueFacade::String { val } => self.js_string_create(&*val),
             JsValueFacade::Boolean { val } => self.js_boolean_create(val),
             JsValueFacade::JsObject { cached_object } => {
                 // todo check realm (else copy? or error?)
