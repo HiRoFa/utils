@@ -1,6 +1,7 @@
 # 0.6.0 (WiP)
 
 * use DefaultAtom for string in JsValueFacade
+* added js_function_create_mut
 
 # 0.5.2
 

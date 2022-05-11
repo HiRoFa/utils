@@ -367,6 +367,19 @@ pub trait JsRealmAdapter {
         js_function: F,
         arg_count: u32,
     ) -> Result<Self::JsValueAdapterType, JsError>;
+    fn js_function_create_mut<
+        F: FnMut(
+                &Self,
+                &Self::JsValueAdapterType,
+                &[Self::JsValueAdapterType],
+            ) -> Result<Self::JsValueAdapterType, JsError>
+            + 'static,
+    >(
+        &self,
+        name: &str,
+        js_function: F,
+        arg_count: u32,
+    ) -> Result<Self::JsValueAdapterType, JsError>;
     fn js_function_create_async<R, F>(
         &self,
         name: &str,
