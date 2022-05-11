@@ -139,6 +139,7 @@ pub trait JsRealmAdapter {
 
     /// convert a JSValueFacade into a JSValueAdapter
     /// you need this to move values into the worker thread from a different thread (JSValueAdapter cannot leave the worker thread)
+    #[allow(clippy::wrong_self_convention)]
     fn from_js_value_facade(
         &self,
         value_facade: JsValueFacade,
@@ -356,19 +357,6 @@ pub trait JsRealmAdapter {
     /// create a new Function
     fn js_function_create<
         F: Fn(
-                &Self,
-                &Self::JsValueAdapterType,
-                &[Self::JsValueAdapterType],
-            ) -> Result<Self::JsValueAdapterType, JsError>
-            + 'static,
-    >(
-        &self,
-        name: &str,
-        js_function: F,
-        arg_count: u32,
-    ) -> Result<Self::JsValueAdapterType, JsError>;
-    fn js_function_create_mut<
-        F: FnMut(
                 &Self,
                 &Self::JsValueAdapterType,
                 &[Self::JsValueAdapterType],
