@@ -132,6 +132,12 @@ impl<T> AutoIdMap<T> {
         self.map.remove(id).expect("no such elem")
     }
 
+    /// remove an element based on its id
+    #[allow(clippy::trivially_copy_pass_by_ref)]
+    pub fn remove_opt(&mut self, id: &usize) -> Option<T> {
+        self.map.remove(id)
+    }
+
     /// get the size of the map
     #[allow(dead_code)]
     pub fn len(&self) -> usize {
