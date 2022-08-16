@@ -80,12 +80,11 @@ impl<R> Future for ResolvableFuture<R> {
 
 #[cfg(test)]
 pub mod tests {
-    use std::sync::mpsc::SendError;
     use crate::resolvable_future::ResolvableFuture;
+    use std::sync::mpsc::SendError;
 
     #[tokio::test]
     async fn my_test() {
-
         let fut = ResolvableFuture::new();
         let r = fut.resolver.clone();
         tokio::spawn(async move {
@@ -100,6 +99,5 @@ pub mod tests {
         let res = fut.await;
 
         println!("res={}", res);
-
     }
 }
