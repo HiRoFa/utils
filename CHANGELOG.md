@@ -1,4 +1,4 @@
-# 0.6.0 (WiP)
+# 0.5.3
 
 * use DefaultAtom for string in JsValueFacade
 * added remove_opt to autoidmap
