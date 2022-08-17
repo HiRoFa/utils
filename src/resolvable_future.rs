@@ -81,7 +81,6 @@ impl<R> Future for ResolvableFuture<R> {
 #[cfg(test)]
 pub mod tests {
     use crate::resolvable_future::ResolvableFuture;
-    use std::sync::mpsc::SendError;
 
     #[tokio::test]
     async fn my_test() {
