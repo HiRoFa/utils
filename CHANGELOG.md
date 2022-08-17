@@ -1,7 +1,8 @@
 # 0.5.3
 
 * use DefaultAtom for string in JsValueFacade
-* added remove_opt to autoidmap
+* added remove_opt to AutoIdMap
+* fixed race condition in ResolvableFuture which could lead to Futures/Promises never resolving
 
 # 0.5.2
 
