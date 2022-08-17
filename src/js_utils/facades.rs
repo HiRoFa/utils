@@ -235,7 +235,7 @@ pub trait JsRuntimeFacade {
 }
 
 /// the JsValueType represents the type of value for a JSValue
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Eq)]
 pub enum JsValueType {
     I32,
     F64,

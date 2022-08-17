@@ -23,6 +23,7 @@ struct CacheEntry<O> {
 pub struct Cache<K: std::cmp::Eq + std::hash::Hash, O> {
     // on every get remove and add (oldest items come first)
     entries: LinkedHashMap<K, CacheEntry<O>>,
+    #[allow(clippy::type_complexity)]
     producer: Box<dyn Fn(&K) -> Option<O> + Send>,
     max_inactive_time: Duration,
     inactive_resolution: Duration,

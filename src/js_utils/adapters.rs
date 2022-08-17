@@ -389,16 +389,10 @@ pub trait JsRealmAdapter {
                     args_fac.push(realm.to_js_value_facade(arg)?);
                 }
                 let fut = js_function(this_fac, args_fac);
-                realm.js_promise_create_resolving_async(
-                    async move {
-                        let res = fut.await;
-                        res
-                    },
-                    |realm, pres| {
-                        //
-                        realm.from_js_value_facade(pres)
-                    },
-                )
+                realm.js_promise_create_resolving_async(async move { fut.await }, |realm, pres| {
+                    //
+                    realm.from_js_value_facade(pres)
+                })
             },
             arg_count,
         )

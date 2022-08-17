@@ -214,8 +214,7 @@ impl CachedJsArrayRef {
         &self,
         rti: &R,
     ) -> Result<Vec<JsValueFacade>, JsError> {
-        let res = self
-            .cached_object
+        self.cached_object
             .with_obj(rti, |realm, arr| {
                 let mut vec: Vec<JsValueFacade> = vec![];
                 realm.js_array_traverse_mut(arr, |_index, element| {
@@ -224,8 +223,7 @@ impl CachedJsArrayRef {
                 })?;
                 Ok(vec)
             })
-            .await?;
-        res
+            .await?
     }
 }
 
@@ -454,7 +452,7 @@ impl JsValueFacade {
     }
     pub fn get_str(&self) -> &str {
         match self {
-            JsValueFacade::String { val } => &*val,
+            JsValueFacade::String { val } => val,
             _ => {
                 panic!("Not a string");
             }
