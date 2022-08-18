@@ -75,7 +75,7 @@ pub trait JsRealmAdapter {
                 val: js_value.js_to_f64(),
             },
             JsValueType::String => JsValueFacade::String {
-                val: DefaultAtom::from(js_value.js_to_str()?),
+                val: DefaultAtom::from(js_value.js_to_string()?),
             },
             JsValueType::Boolean => JsValueFacade::Boolean {
                 val: js_value.js_to_bool(),
