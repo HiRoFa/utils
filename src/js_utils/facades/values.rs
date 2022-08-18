@@ -377,7 +377,7 @@ impl JsValueFacade {
     }
     pub fn new_string(val: String) -> Self {
         Self::String {
-            val: DefaultAtom::from(val.as_str()),
+            val: DefaultAtom::from(val),
         }
     }
     pub fn new_callback<
