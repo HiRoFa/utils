@@ -1,3 +1,7 @@
+# 0.5.4
+
+* use owned string for DefaultAtom instantiation 
+
 # 0.5.3
 
 * use DefaultAtom for string in JsValueFacade
