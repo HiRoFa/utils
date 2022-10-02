@@ -52,17 +52,14 @@ where
                                 Ok(val_ref) => {
                                     prom_ref
                                         .js_promise_resolve(realm, &val_ref)
-                                        .ok()
                                         .expect("prom resolution failed");
                                 }
                                 Err(err) => {
                                     let err_ref = realm
                                         .js_error_create(err.get_name(), err.get_message(), err.get_stack())
-                                        .ok()
                                         .expect("could not create str");
                                     prom_ref
                                         .js_promise_reject(realm, &err_ref)
-                                        .ok()
                                         .expect("prom rejection failed");
                                 }
                             }
@@ -71,11 +68,9 @@ where
                             // todo use error:new_error(err)
                             let err_ref = realm
                                 .js_error_create(err.get_name(), err.get_message(), err.get_stack())
-                                .ok()
                                 .expect("could not create str");
                             prom_ref
                                 .js_promise_reject(realm, &err_ref)
-                                .ok()
                                 .expect("prom rejection failed");
                         }
                     }
@@ -138,17 +133,14 @@ pub(crate) fn new_resolving_promise_async<P, R, M, T>(
                                 Ok(val_ref) => {
                                     prom_ref
                                         .js_promise_resolve(realm, &val_ref)
-                                        .ok()
                                         .expect("prom resolution failed");
                                 }
                                 Err(err) => {
                                     let err_ref = realm
                                         .js_error_create(err.get_name(), err.get_message(), err.get_stack())
-                                        .ok()
                                         .expect("could not create err");
                                     prom_ref
                                         .js_promise_reject(realm, &err_ref)
-                                        .ok()
                                         .expect("prom rejection failed");
                                 }
                             }
@@ -157,11 +149,9 @@ pub(crate) fn new_resolving_promise_async<P, R, M, T>(
                             // todo use error:new_error(err)
                             let err_ref = realm
                                 .js_error_create(err.get_name(), err.get_message(), err.get_stack())
-                                .ok()
                                 .expect("could not create str");
                             prom_ref
                                 .js_promise_reject(realm, &err_ref)
-                                .ok()
                                 .expect("prom rejection failed");
                         }
                     }

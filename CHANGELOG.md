@@ -1,3 +1,7 @@
+# 0.5.5
+
+impl Error for JsError
+
 # 0.5.4
 
 * use owned string for DefaultAtom instantiation 

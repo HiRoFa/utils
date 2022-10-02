@@ -13,6 +13,7 @@ pub trait ScriptPreProcessor {
     fn process(&self, script: &mut Script) -> Result<(), JsError>;
 }
 
+#[derive(Debug)]
 pub struct JsError {
     name: String,
     message: String,
@@ -48,10 +49,22 @@ impl JsError {
     }
 }
 
+impl std::error::Error for JsError {
+    fn description(&self) -> &str {
+        self.get_message()
+    }
+}
+
 impl std::fmt::Display for JsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         let e = format!("{}: {}\n{}", self.name, self.message, self.stack);
         f.write_str(e.as_str())
+    }
+}
+
+impl From<Error> for JsError {
+    fn from(e: Error) -> Self {
+        JsError::new_string(format!("{}", e))
     }
 }
 
