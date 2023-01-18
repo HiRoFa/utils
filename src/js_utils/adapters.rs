@@ -150,7 +150,7 @@ pub trait JsRealmAdapter {
         match value_facade {
             JsValueFacade::I32 { val } => self.js_i32_create(val),
             JsValueFacade::F64 { val } => self.js_f64_create(val),
-            JsValueFacade::String { val } => self.js_string_create(&*val),
+            JsValueFacade::String { val } => self.js_string_create(&val),
             JsValueFacade::Boolean { val } => self.js_boolean_create(val),
             JsValueFacade::JsObject { cached_object } => {
                 // todo check realm (else copy? or error?)
