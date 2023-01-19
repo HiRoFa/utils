@@ -18,7 +18,7 @@ num_cpus = "1.13.1"
 either = "1.6"
 linked-hash-map = "0.5.3"
 futures="0.3"
-tokio = {version = "1", features = ["rt-multi-thread", "rt", "bytes", "fs", "io-std", "io-util", "libc", "macros", "memchr", "winapi", "tracing", "time", "tokio-macros", "test-util", "sync", "parking_lot", "once_cell", "mio", "net", "num_cpus"]}
+tokio = {version = "1", features = ["rt-multi-thread", "rt", "bytes", "fs", "io-std", "io-util", "libc", "macros", "memchr", "tracing", "time", "tokio-macros", "test-util", "sync", "parking_lot", "mio", "net", "num_cpus"]}
 string_cache = "0.8"
 
 [dev-dependencies.cargo-husky]
