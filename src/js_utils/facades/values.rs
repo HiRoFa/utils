@@ -4,7 +4,10 @@ use crate::js_utils::facades::{JsRuntimeFacade, JsRuntimeFacadeInner, JsValueTyp
 use crate::js_utils::JsError;
 use crate::resolvable_future::ResolvableFuture;
 use futures::Future;
+use serde::Serialize;
+use serde_json::Value;
 use std::collections::HashMap;
+use std::error::Error;
 use std::fmt::{Debug, Formatter};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -353,11 +356,19 @@ pub enum JsValueFacade {
     JsonStr {
         json: String,
     },
+    SerdeValue {
+        value: Value,
+    },
     Null,
     Undefined,
 }
 
 impl JsValueFacade {
+    pub fn from_serializable<T: Serialize>(obj: &T) -> Result<Self, Box<dyn Error>> {
+        let json = serde_json::to_string(obj)?;
+        Ok(Self::JsonStr { json })
+    }
+
     pub fn new_i32(val: i32) -> Self {
         Self::I32 { val }
     }
@@ -489,6 +500,33 @@ impl JsValueFacade {
             JsValueFacade::ProxyInstance { .. } => JsValueType::Object,
             JsValueFacade::TypedArray { .. } => JsValueType::Object,
             JsValueFacade::JsonStr { .. } => JsValueType::Object,
+            JsValueFacade::SerdeValue { value } => match value {
+                Value::Null => JsValueType::Null,
+                Value::Bool(_) => JsValueType::Boolean,
+                Value::Number(_) => {
+                    if value.is_i64() {
+                        let num = value.as_i64().unwrap();
+                        if num <= i32::MAX as i64 {
+                            JsValueType::I32
+                        } else {
+                            JsValueType::F64
+                        }
+                    } else if value.is_f64() {
+                        JsValueType::F64
+                    } else {
+                        // u64
+                        let num = value.as_u64().unwrap();
+                        if num <= i32::MAX as u64 {
+                            JsValueType::I32
+                        } else {
+                            JsValueType::F64
+                        }
+                    }
+                }
+                Value::String(_) => JsValueType::String,
+                Value::Array(_) => JsValueType::Array,
+                Value::Object(_) => JsValueType::Object,
+            },
         }
     }
     pub fn stringify(&self) -> String {
@@ -543,6 +581,7 @@ impl JsValueFacade {
             JsValueFacade::ProxyInstance { .. } => "ProxyInstance".to_string(),
             JsValueFacade::TypedArray { .. } => "TypedArray".to_string(),
             JsValueFacade::JsonStr { json } => format!("JsonStr: '{}'", json),
+            JsValueFacade::SerdeValue { value } => format!("Serde value: {}", value),
         }
     }
 }

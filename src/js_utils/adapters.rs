@@ -6,6 +6,7 @@ use crate::js_utils::facades::values::{
 use crate::js_utils::facades::{JsRuntimeFacade, JsRuntimeFacadeInner, JsValueType};
 use crate::js_utils::{JsError, Script};
 use futures::Future;
+use serde_json::Value;
 use std::sync::Weak;
 use string_cache::DefaultAtom;
 
@@ -234,6 +235,55 @@ pub trait JsRealmAdapter {
                 TypedArrayType::Uint8 => self.js_typed_array_uint8_create(buffer),
             },
             JsValueFacade::JsonStr { json } => self.js_json_parse(json.as_str()),
+            JsValueFacade::SerdeValue { value } => self.serde_value_to_js_value_adapter(value),
+        }
+    }
+
+    fn serde_value_to_js_value_adapter(
+        &self,
+        value: Value,
+    ) -> Result<Self::JsValueAdapterType, JsError> {
+        match value {
+            Value::Null => self.js_null_create(),
+            Value::Bool(b) => self.js_boolean_create(b),
+            Value::Number(n) => {
+                if n.is_i64() {
+                    let i = n.as_i64().unwrap();
+                    if i <= i32::MAX as i64 {
+                        self.js_i32_create(i as i32)
+                    } else {
+                        self.js_f64_create(i as f64)
+                    }
+                } else if n.is_u64() {
+                    let i = n.as_u64().unwrap();
+                    if i <= i32::MAX as u64 {
+                        self.js_i32_create(i as i32)
+                    } else {
+                        self.js_f64_create(i as f64)
+                    }
+                } else {
+                    // f64
+                    let i = n.as_f64().unwrap();
+                    self.js_f64_create(i)
+                }
+            }
+            Value::String(s) => self.js_string_create(s.as_str()),
+            Value::Array(a) => {
+                let arr = self.js_array_create()?;
+                for (x, aval) in (0_u32..).zip(a.into_iter()) {
+                    let entry = self.serde_value_to_js_value_adapter(aval)?;
+                    self.js_array_set_element(&arr, x, &entry)?;
+                }
+                Ok(arr)
+            }
+            Value::Object(o) => {
+                let obj = self.js_object_create()?;
+                for oval in o {
+                    let entry = self.serde_value_to_js_value_adapter(oval.1)?;
+                    self.js_object_set_property(&obj, oval.0.as_str(), &entry)?;
+                }
+                Ok(obj)
+            }
         }
     }
 
