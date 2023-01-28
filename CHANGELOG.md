@@ -1,3 +1,8 @@
+# 0.5.6 (wip)
+
+impl from_serializable for JsValueFacade for creating a JsValueFacade::JsonStr from a Serializable struct
+impl JsValueFacade::SerdeValue for creating a JSValue from a serde::Value
+
 # 0.5.5
 
 impl Error for JsError
