@@ -2,6 +2,7 @@
 
 * impl JsValueConvertable::to_jsValue_facade for serde::Value
 * impl JsValueFacade::to_json_string for return types like JsValueFacade::JsObject (not input types like JsValueFacade::Object>)
+* impl JsValueFacade::to_serde_value
 
 # 0.5.6
 
