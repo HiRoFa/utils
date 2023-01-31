@@ -239,6 +239,43 @@ pub trait JsRealmAdapter {
         }
     }
 
+    fn js_value_adapter_to_serde_value(
+        &self,
+        value_adapter: &Self::JsValueAdapterType,
+    ) -> Result<serde_json::Value, JsError> {
+        match value_adapter.js_get_type() {
+            JsValueType::I32 => Ok(Value::from(value_adapter.js_to_i32())),
+            JsValueType::F64 => Ok(Value::from(value_adapter.js_to_f64())),
+            JsValueType::String => Ok(Value::from(value_adapter.js_to_string()?)),
+            JsValueType::Boolean => Ok(Value::from(value_adapter.js_to_bool())),
+            JsValueType::Object => {
+                let mut map: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+                self.js_object_traverse_mut(value_adapter, |k, v| {
+                    map.insert(k.to_string(), self.js_value_adapter_to_serde_value(v)?);
+                    Ok(())
+                })?;
+                let obj_val = serde_json::Value::Object(map);
+                Ok(obj_val)
+            }
+            JsValueType::Array => {
+                let mut arr: Vec<serde_json::Value> = vec![];
+                self.js_array_traverse_mut(value_adapter, |_i, v| {
+                    arr.push(self.js_value_adapter_to_serde_value(v)?);
+                    Ok(())
+                })?;
+                let arr_val = serde_json::Value::Array(arr);
+                Ok(arr_val)
+            }
+            JsValueType::Null => Ok(serde_json::Value::Null),
+            JsValueType::Undefined => Ok(serde_json::Value::Null),
+            JsValueType::Function => Ok(serde_json::Value::Null),
+            JsValueType::BigInt => Ok(serde_json::Value::Null),
+            JsValueType::Promise => Ok(serde_json::Value::Null),
+            JsValueType::Date => Ok(serde_json::Value::Null),
+            JsValueType::Error => Ok(serde_json::Value::Null),
+        }
+    }
+
     fn serde_value_to_js_value_adapter(
         &self,
         value: Value,

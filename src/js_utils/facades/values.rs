@@ -55,6 +55,22 @@ impl CachedJsObjectRef {
             drop_action: Mutex::new(Some(Box::new(drop_action))),
         }
     }
+    pub async fn to_json_string<R: JsRuntimeFacadeInner + 'static>(
+        &self,
+        rti: &R,
+    ) -> Result<String, JsError> {
+        let id = self.id;
+        let realm_name = self.realm_id.clone();
+        rti.js_add_rt_task_to_event_loop(move |rt| {
+            if let Some(realm) = rt.js_get_realm(realm_name.as_str()) {
+                //let realm: JsRealmAdapter<JsRuntimeAdapterType = (), JsValueAdapterType = ()> = realm;
+                realm.js_cache_with(id, |obj| realm.js_json_stringify(obj, None))
+            } else {
+                Err(JsError::new_str("no such realm"))
+            }
+        })
+        .await
+    }
     pub async fn js_get_object<R: JsRuntimeFacadeInner>(
         &self,
         rti: &R,
@@ -75,6 +91,21 @@ impl CachedJsObjectRef {
                     ret.insert(result.0, result.1?);
                 }
                 Ok(ret)
+            } else {
+                Err(JsError::new_str("no such realm"))
+            }
+        })
+        .await
+    }
+    pub async fn js_get_serde_value<R: JsRuntimeFacadeInner>(
+        &self,
+        rti: &R,
+    ) -> Result<serde_json::Value, JsError> {
+        let id = self.id;
+        let realm_name = self.realm_id.clone();
+        rti.js_add_rt_task_to_event_loop(move |rt| {
+            if let Some(realm) = rt.js_get_realm(realm_name.as_str()) {
+                realm.js_cache_with(id, |obj| realm.js_value_adapter_to_serde_value(obj))
             } else {
                 Err(JsError::new_str("no such realm"))
             }
@@ -151,6 +182,18 @@ impl Drop for CachedJsObjectRef {
 }
 
 impl CachedJsPromiseRef {
+    pub async fn js_get_serde_value<R: JsRuntimeFacadeInner>(
+        &self,
+        rti: &R,
+    ) -> Result<serde_json::Value, JsError> {
+        self.cached_object.js_get_serde_value(rti).await
+    }
+    pub async fn to_json_string<R: JsRuntimeFacadeInner + 'static>(
+        &self,
+        rti: &R,
+    ) -> Result<String, JsError> {
+        self.cached_object.to_json_string(rti).await
+    }
     pub async fn js_get_promise_result<R: JsRuntimeFacadeInner>(
         &self,
         rti: &R,
@@ -213,6 +256,18 @@ impl CachedJsPromiseRef {
 }
 
 impl CachedJsArrayRef {
+    pub async fn js_get_serde_value<R: JsRuntimeFacadeInner>(
+        &self,
+        rti: &R,
+    ) -> Result<serde_json::Value, JsError> {
+        self.cached_object.js_get_serde_value(rti).await
+    }
+    pub async fn to_json_string<R: JsRuntimeFacadeInner + 'static>(
+        &self,
+        rti: &R,
+    ) -> Result<String, JsError> {
+        self.cached_object.to_json_string(rti).await
+    }
     pub async fn js_get_array<R: JsRuntimeFacadeInner>(
         &self,
         rti: &R,
@@ -231,6 +286,12 @@ impl CachedJsArrayRef {
 }
 
 impl CachedJsFunctionRef {
+    pub async fn js_get_serde_value<R: JsRuntimeFacadeInner>(
+        &self,
+        rti: &R,
+    ) -> Result<serde_json::Value, JsError> {
+        self.cached_object.js_get_serde_value(rti).await
+    }
     pub fn js_invoke_function<R: JsRuntimeFacadeInner>(
         &self,
         rti: &R,
@@ -357,7 +418,7 @@ pub enum JsValueFacade {
         json: String,
     },
     SerdeValue {
-        value: Value,
+        value: serde_json::Value,
     },
     Null,
     Undefined,
@@ -501,9 +562,9 @@ impl JsValueFacade {
             JsValueFacade::TypedArray { .. } => JsValueType::Object,
             JsValueFacade::JsonStr { .. } => JsValueType::Object,
             JsValueFacade::SerdeValue { value } => match value {
-                Value::Null => JsValueType::Null,
-                Value::Bool(_) => JsValueType::Boolean,
-                Value::Number(_) => {
+                serde_json::Value::Null => JsValueType::Null,
+                serde_json::Value::Bool(_) => JsValueType::Boolean,
+                serde_json::Value::Number(_) => {
                     if value.is_i64() {
                         let num = value.as_i64().unwrap();
                         if num <= i32::MAX as i64 {
@@ -523,9 +584,9 @@ impl JsValueFacade {
                         }
                     }
                 }
-                Value::String(_) => JsValueType::String,
-                Value::Array(_) => JsValueType::Array,
-                Value::Object(_) => JsValueType::Object,
+                serde_json::Value::String(_) => JsValueType::String,
+                serde_json::Value::Array(_) => JsValueType::Array,
+                serde_json::Value::Object(_) => JsValueType::Object,
             },
         }
     }
@@ -584,6 +645,62 @@ impl JsValueFacade {
             JsValueFacade::SerdeValue { value } => format!("Serde value: {}", value),
         }
     }
+    pub async fn to_serde_value<R: JsRuntimeFacadeInner + 'static>(
+        &self,
+        rti: &R,
+    ) -> Result<serde_json::Value, JsError> {
+        match self {
+            JsValueFacade::I32 { val } => Ok(serde_json::Value::from(*val)),
+            JsValueFacade::F64 { val } => Ok(serde_json::Value::from(*val)),
+            JsValueFacade::String { val } => Ok(serde_json::Value::from(val.to_string())),
+            JsValueFacade::Boolean { val } => Ok(serde_json::Value::from(*val)),
+            JsValueFacade::JsObject { cached_object } => {
+                cached_object.js_get_serde_value(rti).await
+            }
+            JsValueFacade::JsPromise { cached_promise } => {
+                cached_promise.js_get_serde_value(rti).await
+            }
+            JsValueFacade::JsArray { cached_array } => cached_array.js_get_serde_value(rti).await,
+            JsValueFacade::JsFunction { .. } => Ok(Value::Null),
+            JsValueFacade::Object { .. } => Ok(Value::Null),
+            JsValueFacade::Array { .. } => Ok(Value::Null),
+            JsValueFacade::Promise { .. } => Ok(Value::Null),
+            JsValueFacade::Function { .. } => Ok(Value::Null),
+            JsValueFacade::Null => Ok(Value::Null),
+            JsValueFacade::Undefined => Ok(Value::Null),
+            JsValueFacade::JsError { .. } => Ok(Value::Null),
+            JsValueFacade::ProxyInstance { .. } => Ok(Value::Null),
+            JsValueFacade::TypedArray { .. } => Ok(Value::Null),
+            JsValueFacade::JsonStr { json } => Ok(serde_json::from_str(json).unwrap()),
+            JsValueFacade::SerdeValue { value } => Ok(value.clone()),
+        }
+    }
+    pub async fn to_json_string<R: JsRuntimeFacadeInner + 'static>(
+        &self,
+        rti: &R,
+    ) -> Result<String, JsError> {
+        match self {
+            JsValueFacade::I32 { val } => Ok(format!("{}", val)),
+            JsValueFacade::F64 { val } => Ok(format!("{}", val)),
+            JsValueFacade::String { val } => Ok(format!("'{}'", val.replace('\'', "\\'"))),
+            JsValueFacade::Boolean { val } => Ok(format!("{}", val)),
+            JsValueFacade::JsObject { cached_object } => cached_object.to_json_string(rti).await,
+            JsValueFacade::JsPromise { cached_promise } => cached_promise.to_json_string(rti).await,
+            JsValueFacade::JsArray { cached_array } => cached_array.to_json_string(rti).await,
+            JsValueFacade::JsFunction { .. } => Ok("function () {}".to_string()),
+            JsValueFacade::Object { .. } => Ok("{}".to_string()),
+            JsValueFacade::Array { .. } => Ok("{}".to_string()),
+            JsValueFacade::Promise { .. } => Ok("{}".to_string()),
+            JsValueFacade::Function { .. } => Ok("function () {}".to_string()),
+            JsValueFacade::Null => Ok("null".to_string()),
+            JsValueFacade::Undefined => Ok("undefined".to_string()),
+            JsValueFacade::JsError { val } => Ok(format!("'{}'", val)),
+            JsValueFacade::ProxyInstance { .. } => Ok("{}".to_string()),
+            JsValueFacade::TypedArray { .. } => Ok("[]".to_string()),
+            JsValueFacade::JsonStr { json } => Ok(json.clone()),
+            JsValueFacade::SerdeValue { value } => Ok(serde_json::to_string(value).unwrap()),
+        }
+    }
 }
 
 impl Debug for JsValueFacade {
@@ -594,6 +711,12 @@ impl Debug for JsValueFacade {
 
 pub trait JsValueConvertable {
     fn to_js_value_facade(self) -> JsValueFacade;
+}
+
+impl JsValueConvertable for serde_json::Value {
+    fn to_js_value_facade(self) -> JsValueFacade {
+        JsValueFacade::SerdeValue { value: self }
+    }
 }
 
 impl JsValueConvertable for bool {

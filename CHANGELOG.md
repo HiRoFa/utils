@@ -1,3 +1,8 @@
+# 0.5.7 (wip)
+
+* impl JsValueConvertable::to_jsValue_facade for serde::Value
+* impl JsValueFacade::to_json_string for return types like JsValueFacade::JsObject (not input types like JsValueFacade::Object>)
+
 # 0.5.6
 
 * impl from_serializable for JsValueFacade for creating a JsValueFacade::JsonStr from a Serializable struct
