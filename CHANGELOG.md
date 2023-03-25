@@ -1,3 +1,7 @@
+# 0.6.1
+
+* updated autoidmap so it is Send again
+
 # 0.6.0
 
 * AutoIdMap IDs are now random instead of sequential

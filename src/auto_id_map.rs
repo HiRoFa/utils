@@ -1,4 +1,3 @@
-use rand::rngs::ThreadRng;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 
@@ -18,7 +17,6 @@ use std::collections::HashMap;
 /// ```
 pub struct AutoIdMap<T> {
     max_size: usize,
-    rng: ThreadRng,
     pub map: HashMap<usize, T>,
 }
 
@@ -31,7 +29,6 @@ impl<T> AutoIdMap<T> {
     pub fn new_with_max_size(max_size: usize) -> AutoIdMap<T> {
         AutoIdMap {
             max_size,
-            rng: thread_rng(),
             map: HashMap::new(),
         }
     }
@@ -93,7 +90,7 @@ impl<T> AutoIdMap<T> {
         if self.map.len() >= self.max_size {
             Err("AutoIdMap is full")
         } else {
-            let mut id = self.rng.gen_range(0..self.max_size);
+            let mut id = thread_rng().gen_range(0..self.max_size);
 
             while self.map.contains_key(&id) {
                 if id >= self.max_size - 1 {
