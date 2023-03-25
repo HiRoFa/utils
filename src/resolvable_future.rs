@@ -90,13 +90,13 @@ pub mod tests {
             match r.resolve("hi".to_string()) {
                 Ok(_) => {}
                 Err(e) => {
-                    println!("could not resolve {}", e);
+                    println!("could not resolve {e}");
                 }
             }
         });
 
         let res = fut.await;
 
-        println!("res={}", res);
+        println!("res={res}");
     }
 }

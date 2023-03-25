@@ -216,7 +216,7 @@ impl CachedJsPromiseRef {
                             Err(conv_err) => resolver1.resolve(Err(conv_err)),
                         };
                         send_res
-                            .map_err(|e| JsError::new_string(format!("could not send: {}", e)))?;
+                            .map_err(|e| JsError::new_string(format!("could not send: {e}")))?;
                         realm.js_undefined_create()
                     },
                     1,
@@ -231,7 +231,7 @@ impl CachedJsPromiseRef {
                             Err(conv_err) => resolver2.resolve(Err(conv_err)),
                         };
                         send_res
-                            .map_err(|e| JsError::new_string(format!("could not send: {}", e)))?;
+                            .map_err(|e| JsError::new_string(format!("could not send: {e}")))?;
                         realm.js_undefined_create()
                     },
                     1,
@@ -593,16 +593,16 @@ impl JsValueFacade {
     pub fn stringify(&self) -> String {
         match self {
             JsValueFacade::I32 { val } => {
-                format!("I32: {}", val)
+                format!("I32: {val}")
             }
             JsValueFacade::F64 { val } => {
-                format!("F64: {}", val)
+                format!("F64: {val}")
             }
             JsValueFacade::String { val } => {
-                format!("String: {}", val)
+                format!("String: {val}")
             }
             JsValueFacade::Boolean { val } => {
-                format!("Boolean: {}", val)
+                format!("Boolean: {val}")
             }
             JsValueFacade::JsObject { cached_object } => {
                 format!(
@@ -638,11 +638,11 @@ impl JsValueFacade {
             JsValueFacade::Function { .. } => "Function".to_string(),
             JsValueFacade::Null => "Null".to_string(),
             JsValueFacade::Undefined => "Undefined".to_string(),
-            JsValueFacade::JsError { val } => format!("{}", val),
+            JsValueFacade::JsError { val } => format!("{val}"),
             JsValueFacade::ProxyInstance { .. } => "ProxyInstance".to_string(),
             JsValueFacade::TypedArray { .. } => "TypedArray".to_string(),
-            JsValueFacade::JsonStr { json } => format!("JsonStr: '{}'", json),
-            JsValueFacade::SerdeValue { value } => format!("Serde value: {}", value),
+            JsValueFacade::JsonStr { json } => format!("JsonStr: '{json}'"),
+            JsValueFacade::SerdeValue { value } => format!("Serde value: {value}"),
         }
     }
     pub async fn to_serde_value<R: JsRuntimeFacadeInner + 'static>(
@@ -680,10 +680,10 @@ impl JsValueFacade {
         rti: &R,
     ) -> Result<String, JsError> {
         match self {
-            JsValueFacade::I32 { val } => Ok(format!("{}", val)),
-            JsValueFacade::F64 { val } => Ok(format!("{}", val)),
+            JsValueFacade::I32 { val } => Ok(format!("{val}")),
+            JsValueFacade::F64 { val } => Ok(format!("{val}")),
             JsValueFacade::String { val } => Ok(format!("'{}'", val.replace('\'', "\\'"))),
-            JsValueFacade::Boolean { val } => Ok(format!("{}", val)),
+            JsValueFacade::Boolean { val } => Ok(format!("{val}")),
             JsValueFacade::JsObject { cached_object } => cached_object.to_json_string(rti).await,
             JsValueFacade::JsPromise { cached_promise } => cached_promise.to_json_string(rti).await,
             JsValueFacade::JsArray { cached_array } => cached_array.to_json_string(rti).await,
@@ -694,7 +694,7 @@ impl JsValueFacade {
             JsValueFacade::Function { .. } => Ok("function () {}".to_string()),
             JsValueFacade::Null => Ok("null".to_string()),
             JsValueFacade::Undefined => Ok("undefined".to_string()),
-            JsValueFacade::JsError { val } => Ok(format!("'{}'", val)),
+            JsValueFacade::JsError { val } => Ok(format!("'{val}'")),
             JsValueFacade::ProxyInstance { .. } => Ok("{}".to_string()),
             JsValueFacade::TypedArray { .. } => Ok("[]".to_string()),
             JsValueFacade::JsonStr { json } => Ok(json.clone()),

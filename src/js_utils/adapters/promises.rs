@@ -14,11 +14,11 @@ pub fn new_resolving_promise<P, R, M, T>(
     producer: P,
     mapper: M,
 ) -> Result<T::JsValueAdapterType, JsError>
-where
-    T: JsRealmAdapter + 'static,
-    R: Send + 'static,
-    P: FnOnce() -> Result<R, JsError> + Send + 'static,
-    M: FnOnce(&<<<<<<T as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType, R) -> Result<<<<<<<<T as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType, JsError> + Send + 'static,
+    where
+        T: JsRealmAdapter + 'static,
+        R: Send + 'static,
+        P: FnOnce() -> Result<R, JsError> + Send + 'static,
+        M: FnOnce(&<<<<<<T as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType, R) -> Result<<<<<<<<T as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType, JsError> + Send + 'static,
 {
     // create promise
     let promise_ref = realm.js_promise_create()?;
@@ -40,39 +40,43 @@ where
 
                     // in q_js_rt worker thread, resolve promise
                     // retrieve promise
-                    let prom_ref: Box<(dyn JsPromiseAdapter<<<<<<<T as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType> + 'static)> = realm.js_promise_cache_consume(id);
-                    //let prom_ref = realm.js_promise_cache_consume(id);
-                    match produced_result {
-                        Ok(ok_res) => {
-                            // map result to JSValueRef
-                            let raw_res = mapper(realm, ok_res);
+                    let prom_ref_opt: Option<Box<(dyn JsPromiseAdapter<<<<<<<T as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType> + 'static)>> = realm.js_promise_cache_consume(id);
+                    if let Some(prom_ref) = prom_ref_opt {
+                        //let prom_ref = realm.js_promise_cache_consume(id);
+                        match produced_result {
+                            Ok(ok_res) => {
+                                // map result to JSValueRef
+                                let raw_res = mapper(realm, ok_res);
 
-                            // resolve or reject promise
-                            match raw_res {
-                                Ok(val_ref) => {
-                                    prom_ref
-                                        .js_promise_resolve(realm, &val_ref)
-                                        .expect("prom resolution failed");
-                                }
-                                Err(err) => {
-                                    let err_ref = realm
-                                        .js_error_create(err.get_name(), err.get_message(), err.get_stack())
-                                        .expect("could not create str");
-                                    prom_ref
-                                        .js_promise_reject(realm, &err_ref)
-                                        .expect("prom rejection failed");
+                                // resolve or reject promise
+                                match raw_res {
+                                    Ok(val_ref) => {
+                                        prom_ref
+                                            .js_promise_resolve(realm, &val_ref)
+                                            .expect("prom resolution failed");
+                                    }
+                                    Err(err) => {
+                                        let err_ref = realm
+                                            .js_error_create(err.get_name(), err.get_message(), err.get_stack())
+                                            .expect("could not create str");
+                                        prom_ref
+                                            .js_promise_reject(realm, &err_ref)
+                                            .expect("prom rejection failed");
+                                    }
                                 }
                             }
+                            Err(err) => {
+                                // todo use error:new_error(err)
+                                let err_ref = realm
+                                    .js_error_create(err.get_name(), err.get_message(), err.get_stack())
+                                    .expect("could not create str");
+                                prom_ref
+                                    .js_promise_reject(realm, &err_ref)
+                                    .expect("prom rejection failed");
+                            }
                         }
-                        Err(err) => {
-                            // todo use error:new_error(err)
-                            let err_ref = realm
-                                .js_error_create(err.get_name(), err.get_message(), err.get_stack())
-                                .expect("could not create str");
-                            prom_ref
-                                .js_promise_reject(realm, &err_ref)
-                                .expect("prom rejection failed");
-                        }
+                    } else {
+                        log::error!("async promise running for dropped realm: {} promise_id:{}", realm_id, id);
                     }
                 } else {
                     log::error!("async promise running for dropped realm: {}", realm_id);
@@ -99,7 +103,7 @@ pub(crate) fn new_resolving_promise_async<P, R, M, T>(
     where
         T: JsRealmAdapter + 'static,
         R: Send + 'static,
-        P: Future<Output = Result<R, JsError>> + Send + 'static,
+        P: Future<Output=Result<R, JsError>> + Send + 'static,
         M: FnOnce(&<<<<<<T as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType, R) -> Result<<<<<<<<T as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType as JsRealmAdapter>::JsValueAdapterType, JsError> + Send + 'static,
 {
     // create promise
@@ -113,7 +117,7 @@ pub(crate) fn new_resolving_promise_async<P, R, M, T>(
 
     let realm_id = realm.js_get_realm_id().to_string();
     // go async
-    let _ = add_helper_task_async(async move {
+    let _ignore_result = add_helper_task_async(async move {
         // in helper thread, produce result
         let produced_result = producer.await;
         if let Some(rti) = rti_ref.upgrade() {
@@ -121,39 +125,43 @@ pub(crate) fn new_resolving_promise_async<P, R, M, T>(
                 if let Some(realm) = rt.js_get_realm(realm_id.as_str()) {
                     // in q_js_rt worker thread, resolve promise
                     // retrieve promise
-                    let prom_ref: Box<(dyn JsPromiseAdapter<<<<<<<T as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType> + 'static)> = realm.js_promise_cache_consume(id);
-                    //let prom_ref = realm.js_promise_cache_consume(id);
-                    match produced_result {
-                        Ok(ok_res) => {
-                            // map result to JSValueRef
-                            let raw_res = mapper(realm, ok_res);
+                    let prom_ref_opt: Option<Box<(dyn JsPromiseAdapter<<<<<<<T as JsRealmAdapter>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeFacadeInnerType as JsRuntimeFacadeInner>::JsRuntimeFacadeType as JsRuntimeFacade>::JsRuntimeAdapterType as JsRuntimeAdapter>::JsRealmAdapterType> + 'static)>> = realm.js_promise_cache_consume(id);
+                    if let Some(prom_ref) = prom_ref_opt {
+                        //let prom_ref = realm.js_promise_cache_consume(id);
+                        match produced_result {
+                            Ok(ok_res) => {
+                                // map result to JSValueRef
+                                let raw_res = mapper(realm, ok_res);
 
-                            // resolve or reject promise
-                            match raw_res {
-                                Ok(val_ref) => {
-                                    prom_ref
-                                        .js_promise_resolve(realm, &val_ref)
-                                        .expect("prom resolution failed");
-                                }
-                                Err(err) => {
-                                    let err_ref = realm
-                                        .js_error_create(err.get_name(), err.get_message(), err.get_stack())
-                                        .expect("could not create err");
-                                    prom_ref
-                                        .js_promise_reject(realm, &err_ref)
-                                        .expect("prom rejection failed");
+                                // resolve or reject promise
+                                match raw_res {
+                                    Ok(val_ref) => {
+                                        prom_ref
+                                            .js_promise_resolve(realm, &val_ref)
+                                            .expect("prom resolution failed");
+                                    }
+                                    Err(err) => {
+                                        let err_ref = realm
+                                            .js_error_create(err.get_name(), err.get_message(), err.get_stack())
+                                            .expect("could not create err");
+                                        prom_ref
+                                            .js_promise_reject(realm, &err_ref)
+                                            .expect("prom rejection failed");
+                                    }
                                 }
                             }
+                            Err(err) => {
+                                // todo use error:new_error(err)
+                                let err_ref = realm
+                                    .js_error_create(err.get_name(), err.get_message(), err.get_stack())
+                                    .expect("could not create str");
+                                prom_ref
+                                    .js_promise_reject(realm, &err_ref)
+                                    .expect("prom rejection failed");
+                            }
                         }
-                        Err(err) => {
-                            // todo use error:new_error(err)
-                            let err_ref = realm
-                                .js_error_create(err.get_name(), err.get_message(), err.get_stack())
-                                .expect("could not create str");
-                            prom_ref
-                                .js_promise_reject(realm, &err_ref)
-                                .expect("prom rejection failed");
-                        }
+                    } else {
+                        log::error!("async promise running on dropped realm: {} promise_id:{}", realm_id, id);
                     }
                 } else {
                     log::error!("async promise running on dropped realm: {}", realm_id);

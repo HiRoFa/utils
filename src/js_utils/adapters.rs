@@ -647,7 +647,7 @@ pub trait JsRealmAdapter {
     /// cache a JsPromiseAdapter so it can be accessed later based on an id, while cached the JsPromiseAdapter object will not be garbage collected
     fn js_promise_cache_add(&self, promise_ref: Box<dyn JsPromiseAdapter<Self>>) -> usize;
     /// Consume a JsPromiseAdapter (remove from cache)
-    fn js_promise_cache_consume(&self, id: usize) -> Box<dyn JsPromiseAdapter<Self>>;
+    fn js_promise_cache_consume(&self, id: usize) -> Option<Box<dyn JsPromiseAdapter<Self>>>;
 
     /// cache a Object so it can be accessed later based on an id, while cached the Object will not be garbage collected
     fn js_cache_add(&self, object: &Self::JsValueAdapterType) -> i32;
@@ -683,8 +683,7 @@ pub trait JsRealmAdapter {
         let constructor = self.js_object_get_property(&global, constructor_name)?;
         if constructor.js_is_null_or_undefined() {
             Err(JsError::new_string(format!(
-                "no such constructor: {}",
-                constructor_name
+                "no such constructor: {constructor_name}"
             )))
         } else {
             Ok(self.js_instance_of(object, &constructor))

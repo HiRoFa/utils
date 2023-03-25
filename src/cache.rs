@@ -164,7 +164,7 @@ pub mod tests {
 
     #[test]
     fn test_cache() {
-        let producer = |key: &&str| Some(format!("entry: {}", key));
+        let producer = |key: &&str| Some(format!("entry: {key}"));
         let mut cache: Cache<&str, String> = Cache::new(producer, Duration::from_secs(2), 10);
 
         test_send(&cache);

@@ -1,6 +1,6 @@
 [package]
 name = "hirofa_utils"
-version = "0.5.7"
+version = "0.5.8"
 authors = ["HiRoFa <info@hirofa.com>"]
 edition = "2018"
 description = "Utils project which is depended on by several other projects"
@@ -22,6 +22,7 @@ tokio = {version = "1", features = ["rt-multi-thread", "rt", "bytes", "fs", "io-
 string_cache = "0.8"
 serde = "1"
 serde_json = "1"
+rand = "0.8.5"
 
 [dev-dependencies.cargo-husky]
 version = "1.5.0"

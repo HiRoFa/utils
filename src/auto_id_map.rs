@@ -1,3 +1,5 @@
+use rand::rngs::ThreadRng;
+use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 
 /// AutoIdMap is a wrapper around HashMap which automatically creates a unique id for it's entries
@@ -16,7 +18,7 @@ use std::collections::HashMap;
 /// ```
 pub struct AutoIdMap<T> {
     max_size: usize,
-    last_id: usize,
+    rng: ThreadRng,
     pub map: HashMap<usize, T>,
 }
 
@@ -29,7 +31,7 @@ impl<T> AutoIdMap<T> {
     pub fn new_with_max_size(max_size: usize) -> AutoIdMap<T> {
         AutoIdMap {
             max_size,
-            last_id: 0,
+            rng: thread_rng(),
             map: HashMap::new(),
         }
     }
@@ -83,25 +85,27 @@ impl<T> AutoIdMap<T> {
 
     /// insert an element and return the new id
     pub fn insert(&mut self, elem: T) -> usize {
+        self.try_insert(elem).expect("map is full")
+    }
+
+    /// insert an element and return the new id
+    pub fn try_insert(&mut self, elem: T) -> Result<usize, &str> {
         if self.map.len() >= self.max_size {
-            panic!("AutoIdMap is full");
-        }
+            Err("AutoIdMap is full")
+        } else {
+            let mut id = self.rng.gen_range(0..self.max_size);
 
-        self.last_id += 1;
-
-        if self.last_id >= self.max_size {
-            self.last_id = 0;
-        }
-
-        while self.map.contains_key(&self.last_id) {
-            if self.last_id >= self.max_size {
-                self.last_id = 0;
+            while self.map.contains_key(&id) {
+                if id >= self.max_size - 1 {
+                    id = 0;
+                } else {
+                    id += 1;
+                }
             }
-            self.last_id += 1;
-        }
 
-        self.map.insert(self.last_id, elem);
-        self.last_id
+            self.map.insert(id, elem);
+            Ok(id)
+        }
     }
 
     /// replace an element, this will panic if you pass an id that is not present
@@ -178,5 +182,22 @@ pub mod tests {
         let free_id = map.insert("fail?");
 
         assert_eq!(free_id, 5);
+    }
+
+    #[test]
+    fn test_aim_ms() {
+        let mut map = AutoIdMap::new_with_max_size(8);
+        for _x in 0..8 {
+            map.insert("foo");
+        }
+        assert_eq!(map.len(), 8);
+        map.remove(&5);
+        let free_id = map.insert("fail?");
+
+        assert_eq!(free_id, 5);
+
+        let res = map.try_insert("foobar");
+        // should be full
+        assert!(res.is_err());
     }
 }

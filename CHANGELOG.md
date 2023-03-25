@@ -1,4 +1,9 @@
-# 0.5.7 (wip)
+# 0.6.0
+
+* AutoIdMap IDs are now random instead of sequential
+* JSRealmAdapter::promise_cache_consume now returns an Option instead of panic on not found
+
+# 0.5.7
 
 * impl JsValueConvertable::to_jsValue_facade for serde::Value
 * impl JsValueFacade::to_json_string for return types like JsValueFacade::JsObject (not input types like JsValueFacade::Object>)

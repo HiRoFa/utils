@@ -64,7 +64,7 @@ impl std::fmt::Display for JsError {
 
 impl From<Error> for JsError {
     fn from(e: Error) -> Self {
-        JsError::new_string(format!("{}", e))
+        JsError::new_string(format!("{e}"))
     }
 }
 
