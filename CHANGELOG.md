@@ -1,3 +1,7 @@
+# 0.7.0
+
+* removed js_utils
+
 # 0.6.1
 
 * updated autoidmap so it is Send again
