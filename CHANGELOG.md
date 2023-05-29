@@ -5,7 +5,7 @@
 
 # 0.7.1
 
-* tokio fix (deprecated feature removed)
+* tokio fix (deprecated feature removed
 
 # 0.7.0
 
