@@ -8,9 +8,10 @@ use std::future::Future;
 use std::ops::Add;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::mpsc::{channel, sync_channel, SyncSender};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
+
+
 
 lazy_static! {
     static ref IDS: AtomicUsize = AtomicUsize::new(0);
@@ -22,7 +23,7 @@ fn next_id() -> usize {
 
 /// the EventLoop struct is a single thread event queue
 pub struct EventLoop {
-    tx: SyncSender<Box<dyn FnOnce() + Send + 'static>>,
+    tx: flume::Sender<Box<dyn FnOnce() + Send + 'static>>,
     join_handle: Option<JoinHandle<()>>,
     id: usize,
 }
@@ -51,7 +52,7 @@ impl EventLoop {
     /// init a new EventLoop
     pub fn new() -> Self {
         // todo settable buffer size
-        let (tx, rx) = sync_channel(256);
+        let (tx, rx) = flume::bounded(256);
 
         let id = next_id();
 
@@ -74,17 +75,9 @@ impl EventLoop {
                 let spawner = pool.spawner();
                 let mut next_deadline = Instant::now().add(Duration::from_secs(10));
                 loop {
-                    // todo use deadline when stabilized
-                    let now = Instant::now();
 
-                    let timeout = if now.gt(&next_deadline) {
-                        Duration::from_secs(0)
-                    } else {
-                        next_deadline.duration_since(now)
-                    };
                     // recv may fail on timeout
-
-                    let recv_res = rx.recv_timeout(timeout);
+                    let recv_res = rx.recv_deadline(next_deadline);
                     if recv_res.is_ok() {
                         let fut: Box<dyn FnOnce() + Send + 'static> = recv_res.ok().unwrap();
                         // this seems redundant.. i could just run the task closure
@@ -236,7 +229,7 @@ impl EventLoop {
         if Self::is_my_pool_thread(self) {
             task()
         } else {
-            let (tx, rx) = channel();
+            let (tx, rx) = flume::bounded::<R>(1);
             self.add_void(move || tx.send(task()).expect("could not send"));
             rx.recv().expect("could not recv")
         }
@@ -259,7 +252,7 @@ impl EventLoop {
         &self,
         fut: F,
     ) -> impl Future<Output = R> {
-        let (tx, rx) = channel();
+        let (tx, rx) = flume::bounded(1);
         self.add_void(move || {
             let res_fut = Self::add_local_future(fut);
             tx.send(res_fut).expect("send failed");
@@ -434,4 +427,8 @@ pub mod tests {
         t(event_loop);
         println!("yup, EL is sync");
     }
+
+
+
 }
+

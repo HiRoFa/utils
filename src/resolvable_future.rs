@@ -2,16 +2,16 @@ use crate::debug_mutex::DebugMutex;
 use futures::task::{Context, Poll, Waker};
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::mpsc::{sync_channel, Receiver, SendError, SyncSender};
 use std::sync::Arc;
+use flume::{Receiver, Sender, SendError};
 
 pub struct ResolvableFutureResolver<R> {
-    sender: SyncSender<R>,
+    sender: Sender<R>,
     waker: DebugMutex<Option<Waker>>,
 }
 
 impl<R> ResolvableFutureResolver<R> {
-    pub fn new(tx: SyncSender<R>) -> Self {
+    pub fn new(tx: Sender<R>) -> Self {
         Self {
             sender: tx,
             waker: DebugMutex::new(None, "ResolvableFutureResolver::waker"),
@@ -36,7 +36,7 @@ pub struct ResolvableFuture<R> {
 }
 impl<R> ResolvableFuture<R> {
     pub fn new() -> Self {
-        let (tx, rx) = sync_channel(1);
+        let (tx, rx) = flume::bounded(1);
 
         Self {
             result: rx,

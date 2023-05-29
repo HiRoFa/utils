@@ -1,3 +1,8 @@
+# 0.7.1
+
+* use flume for channels
+* use parking_lot for Mutex
+
 # 0.7.0
 
 * removed js_utils

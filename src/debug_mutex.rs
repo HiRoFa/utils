@@ -1,4 +1,5 @@
-use std::sync::{LockResult, Mutex, MutexGuard};
+use parking_lot::Mutex;
+use parking_lot::MutexGuard;
 
 pub struct DebugMutex<T> {
     name: &'static str,
@@ -12,7 +13,8 @@ impl<T> DebugMutex<T> {
             name,
         }
     }
-    pub fn lock(&self, reason: &'static str) -> LockResult<MutexGuard<T>> {
+    pub fn lock(&self, reason: &'static str) -> anyhow::Result<MutexGuard<T>> {
+
         log::trace!(
             "lock mutex:{} for: {} from thread: {}",
             self.name,
@@ -29,7 +31,7 @@ impl<T> DebugMutex<T> {
             thread_id::get()
         );
 
-        ret
+        Ok(ret)
 
         // first try_lock
 
