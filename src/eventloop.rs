@@ -11,8 +11,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-
-
 lazy_static! {
     static ref IDS: AtomicUsize = AtomicUsize::new(0);
 }
@@ -75,7 +73,6 @@ impl EventLoop {
                 let spawner = pool.spawner();
                 let mut next_deadline = Instant::now().add(Duration::from_secs(10));
                 loop {
-
                     // recv may fail on timeout
                     let recv_res = rx.recv_deadline(next_deadline);
                     if recv_res.is_ok() {
@@ -427,8 +424,4 @@ pub mod tests {
         t(event_loop);
         println!("yup, EL is sync");
     }
-
-
-
 }
-

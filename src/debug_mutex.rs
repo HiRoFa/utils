@@ -14,7 +14,6 @@ impl<T> DebugMutex<T> {
         }
     }
     pub fn lock(&self, reason: &'static str) -> anyhow::Result<MutexGuard<T>> {
-
         log::trace!(
             "lock mutex:{} for: {} from thread: {}",
             self.name,

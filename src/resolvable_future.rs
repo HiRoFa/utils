@@ -1,9 +1,9 @@
 use crate::debug_mutex::DebugMutex;
+use flume::{Receiver, SendError, Sender};
 use futures::task::{Context, Poll, Waker};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
-use flume::{Receiver, Sender, SendError};
 
 pub struct ResolvableFutureResolver<R> {
     sender: Sender<R>,
