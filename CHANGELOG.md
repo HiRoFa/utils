@@ -1,7 +1,11 @@
-# 0.7.1
+# 0.7.2
 
 * use flume for channels
 * use parking_lot for Mutex
+
+# 0.7.1
+
+* tokio fix (deprecated feature removed)
 
 # 0.7.0
 
