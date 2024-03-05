@@ -1,3 +1,7 @@
+# 0.7.3
+
+* removed flume again, see if std mpsc works better
+
 # 0.7.2
 
 * use flume for channels

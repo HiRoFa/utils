@@ -1,8 +1,8 @@
 use crate::debug_mutex::DebugMutex;
-use flume::{Receiver, SendError, Sender};
 use futures::task::{Context, Poll, Waker};
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::mpsc::{channel, Receiver, SendError, Sender};
 use std::sync::Arc;
 
 pub struct ResolvableFutureResolver<R> {
@@ -20,13 +20,27 @@ impl<R> ResolvableFutureResolver<R> {
     pub fn resolve(&self, resolution: R) -> Result<(), SendError<R>> {
         log::trace!("ResolvableFutureResolver.resolve");
         let waker_opt = &mut *self.waker.lock("resolve").unwrap();
-        self.sender.send(resolution)?;
 
-        if let Some(waker) = waker_opt.take() {
-            log::trace!("ResolvableFutureResolver.resolve has waker, waking");
-            waker.wake();
+        match self.sender.send(resolution) {
+            Ok(_) => {
+                if let Some(waker) = waker_opt.take() {
+                    log::trace!("ResolvableFutureResolver.resolve has waker, waking");
+                    waker.wake();
+                }
+                Ok(())
+            }
+            Err(se) => {
+                if let Some(waker) = waker_opt.take() {
+                    log::error!(
+                        "ResolvableFutureResolver::could not send response ({:?}), had waker so waking", se
+                    );
+                    waker.wake();
+                } else {
+                    log::error!("ResolvableFutureResolver::could not send response ({:?}), had no waker so was possibly already resolved", se);
+                }
+                Err(se)
+            }
         }
-        Ok(())
     }
 }
 
@@ -36,7 +50,7 @@ pub struct ResolvableFuture<R> {
 }
 impl<R> ResolvableFuture<R> {
     pub fn new() -> Self {
-        let (tx, rx) = flume::bounded(1);
+        let (tx, rx) = channel();
 
         Self {
             result: rx,
