@@ -43,8 +43,8 @@ thread_local! {
     static INTERVALS: RefCell<AutoIdMap<Interval>> = RefCell::new(AutoIdMap::new_with_max_size(i32::MAX as usize));
     // impl timeout and interval tasks as two separate thread_locals, add a single method to add jobs for timeouts and intervals which returns a next)runt instant, that may be used for recv on next loop
     static POOL: RefCell<LocalPool> = RefCell::new(LocalPool::new());
-    static SPAWNER: RefCell<Option<LocalSpawner>> = RefCell::new(None);
-    static LOCAL_ID: RefCell<Option<usize>> = RefCell::new(None);
+    static SPAWNER: RefCell<Option<LocalSpawner>> = const { RefCell::new(None) };
+    static LOCAL_ID: RefCell<Option<usize>> = const { RefCell::new(None) };
 }
 
 impl EventLoop {
