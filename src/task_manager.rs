@@ -1,10 +1,11 @@
 use futures::Future;
 use log::trace;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Handle, Runtime};
 use tokio::task::JoinError;
 
 pub struct TaskManager {
-    runtime: Runtime,
+    handle: Handle,
+    _runtime: Option<Runtime>,
 }
 
 impl TaskManager {
@@ -17,12 +18,23 @@ impl TaskManager {
             .build()
             .expect("tokio rt failed");
 
-        TaskManager { runtime }
+        let handle = runtime.handle().clone();
+        TaskManager {
+            handle,
+            _runtime: Some(runtime),
+        }
+    }
+
+    pub fn from_handle(handle: Handle) -> Self {
+        TaskManager {
+            handle,
+            _runtime: None,
+        }
     }
 
     pub fn add_task<T: FnOnce() + Send + 'static>(&self, task: T) {
         trace!("adding a task");
-        self.runtime.spawn_blocking(task);
+        self.handle.spawn_blocking(task);
     }
 
     /// start an async task
@@ -39,7 +51,7 @@ impl TaskManager {
         &self,
         task: T,
     ) -> impl Future<Output = Result<R, JoinError>> {
-        self.runtime.spawn(task)
+        self.handle.spawn(task)
     }
 
     #[allow(dead_code)]
@@ -49,8 +61,8 @@ impl TaskManager {
     ) -> R {
         trace!("adding a sync task from thread {}", thread_id::get());
         // check if the current thread is not a worker thread, because that would be bad
-        let join_handle = self.runtime.spawn_blocking(task);
-        self.runtime.block_on(join_handle).expect("task failed")
+        let join_handle = self.handle.spawn_blocking(task);
+        self.handle.block_on(join_handle).expect("task failed")
     }
 }
 
@@ -84,5 +96,18 @@ mod tests {
 
             assert_eq!(s, "res");
         }
+    }
+
+    #[test]
+    fn test_from_handle() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let handle = rt.handle().clone();
+        let tm = TaskManager::from_handle(handle);
+
+        let s = tm.run_task_blocking(|| "res");
+        assert_eq!(s, "res");
     }
 }
